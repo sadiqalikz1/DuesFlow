@@ -2,8 +2,8 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Cell } from 'recharts';
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { Bar, BarChart, XAxis, YAxis, Cell } from 'recharts';
 
 const data = [
   { range: '0-30 Days', amount: 450000, color: 'hsl(var(--primary))' },
@@ -11,6 +11,13 @@ const data = [
   { range: '61-90 Days', amount: 150000, color: '#f59e0b' },
   { range: '90+ Days', amount: 80000, color: 'hsl(var(--destructive))' },
 ];
+
+const chartConfig = {
+  amount: {
+    label: "Outstanding Amount",
+    color: "hsl(var(--primary))",
+  },
+} satisfies ChartConfig;
 
 export function AgingReport() {
   return (
@@ -21,7 +28,7 @@ export function AgingReport() {
       </CardHeader>
       <CardContent className="p-6">
         <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
+          <ChartContainer config={chartConfig}>
             <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
               <XAxis 
                 dataKey="range" 
@@ -42,7 +49,7 @@ export function AgingReport() {
                 ))}
               </Bar>
             </BarChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         </div>
       </CardContent>
     </Card>
