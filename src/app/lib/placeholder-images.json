@@ -1,0 +1,17 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "avatar-user",
+      "description": "User profile avatar",
+      "imageUrl": "https://picsum.photos/seed/duesflow-user/100/100",
+      "imageHint": "user profile"
+    },
+    {
+      "id": "empty-state",
+      "description": "Empty state illustration for dashboard",
+      "imageUrl": "https://picsum.photos/seed/duesflow-empty/400/300",
+      "imageHint": "finance dashboard"
+    }
+  ]
+}
