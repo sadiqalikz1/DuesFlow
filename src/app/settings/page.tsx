@@ -81,12 +81,12 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      <main className="p-4 md:p-8 max-w-5xl mx-auto w-full">
-        <div className="mb-10">
+      <main className="p-4 md:p-8 max-w-4xl mx-auto w-full space-y-8">
+        <div>
           <p className="text-slate-500 font-medium">Manage your account preferences and application localization defaults.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-8">
+        <div className="grid grid-cols-1 gap-6">
           {/* Personal Settings */}
           <Card className="border-none shadow-sm overflow-hidden bg-white">
             <CardHeader className="flex flex-row items-center gap-4 border-b bg-slate-50/30 pb-6">
@@ -94,22 +94,22 @@ export default function SettingsPage() {
                 <User className="h-5 w-5 text-accent" />
               </div>
               <div>
-                <CardTitle className="text-lg">Account Profile</CardTitle>
+                <CardTitle className="text-lg font-headline">Account Profile</CardTitle>
                 <CardDescription>Your personal information and session details.</CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="space-y-8 pt-8 px-6 md:px-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2.5">
-                  <Label className="text-slate-600 font-bold ml-1">Display Name</Label>
+            <CardContent className="space-y-6 pt-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-slate-600 font-bold">Display Name</Label>
                   <Input 
                     value={user?.displayName || 'Active User'} 
                     readOnly 
                     className="bg-slate-50 border-slate-200 cursor-not-allowed h-11"
                   />
                 </div>
-                <div className="space-y-2.5">
-                  <Label className="text-slate-600 font-bold ml-1">Email Address</Label>
+                <div className="space-y-2">
+                  <Label className="text-slate-600 font-bold">Email Address</Label>
                   <Input 
                     value={user?.email || 'Anonymous Access'} 
                     readOnly 
@@ -131,13 +131,13 @@ export default function SettingsPage() {
                 <Globe className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-lg">Localization</CardTitle>
+                <CardTitle className="text-lg font-headline">Localization</CardTitle>
                 <CardDescription>Select your preferred currency for global financial reports.</CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="space-y-8 pt-8 px-6 md:px-8">
-              <div className="space-y-3 max-w-md">
-                <Label htmlFor="currency" className="text-slate-600 font-bold ml-1">Preferred Currency</Label>
+            <CardContent className="space-y-6 pt-8">
+              <div className="space-y-3 max-w-sm">
+                <Label htmlFor="currency" className="text-slate-600 font-bold">Preferred Currency</Label>
                 {isLoading ? (
                   <div className="h-11 w-full bg-slate-100 animate-pulse rounded-xl" />
                 ) : (
@@ -154,7 +154,7 @@ export default function SettingsPage() {
                 )}
               </div>
 
-              <div className="pt-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 border-t border-slate-100 mt-6">
+              <div className="pt-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 border-t border-slate-100">
                 <Button 
                   onClick={handleSave} 
                   disabled={saving || isLoading}
@@ -178,17 +178,17 @@ export default function SettingsPage() {
           </Card>
 
           {/* Logout Section */}
-          <Card className="border-none shadow-sm border-l-4 border-l-destructive/50 overflow-hidden bg-white">
+          <Card className="border-none shadow-sm overflow-hidden bg-white border-l-4 border-l-destructive/50">
             <CardHeader className="flex flex-row items-center gap-4 border-b bg-red-50/10 pb-6">
               <div className="p-2.5 bg-destructive/10 rounded-xl shrink-0">
                 <LogOut className="h-5 w-5 text-destructive" />
               </div>
               <div>
-                <CardTitle className="text-lg">Security & Session</CardTitle>
+                <CardTitle className="text-lg font-headline">Security & Session</CardTitle>
                 <CardDescription>Securely end your current session across this device.</CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="pt-8 px-6 md:px-8">
+            <CardContent className="pt-8 px-6">
               <Button 
                 variant="destructive" 
                 onClick={handleLogout}

@@ -58,7 +58,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r bg-[#F8FAFC] shadow-sm font-body">
+    <Sidebar collapsible="icon" className="border-r bg-white shadow-sm font-body">
       <SidebarHeader className="p-4 flex flex-row items-center gap-3 h-16 bg-white border-b">
         <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
           <CreditCard className="text-white w-5 h-5" />
@@ -85,7 +85,7 @@ export function AppSidebar() {
                     "transition-all duration-200 h-11 px-4 rounded-xl group",
                     isActive 
                       ? "bg-primary text-white hover:bg-primary/95 hover:text-white shadow-md shadow-primary/25 scale-[1.02]" 
-                      : "text-slate-500 hover:bg-white hover:text-primary hover:shadow-sm"
+                      : "text-slate-500 hover:bg-slate-100 hover:text-primary"
                   )}
                 >
                   <Link href={item.href}>
