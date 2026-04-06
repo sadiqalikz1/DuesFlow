@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Branch": {
@@ -274,70 +275,28 @@
         "allocatedAt"
       ]
     },
-    "DashboardStatistic": {
+    "UserSettings": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "DashboardStatistic",
+      "title": "UserSettings",
       "type": "object",
-      "description": "Stores pre-aggregated financial statistics for quick retrieval and display on the dashboard, either globally or per branch.",
+      "description": "Stores personalized user preferences such as preferred currency and display settings.",
       "properties": {
-        "id": {
+        "userId": {
           "type": "string",
-          "description": "Unique identifier for the DashboardStatistic entity. Can be a specific branchId for branch-level stats or a fixed ID for global stats (e.g., 'global_stats')."
+          "description": "Unique identifier for the user."
         },
-        "branchId": {
+        "currency": {
           "type": "string",
-          "description": "Optional reference to the Branch these statistics pertain to. Null for global statistics. (Relationship: Branch 1:1 DashboardStatistic)"
+          "description": "Preferred currency code (e.g., INR, USD).",
+          "enum": ["INR", "USD", "EUR", "GBP"]
         },
-        "totalOutstanding": {
-          "type": "number",
-          "description": "The total sum of all remaining balances for invoices."
-        },
-        "totalOverdue": {
-          "type": "number",
-          "description": "The total sum of remaining balances for all overdue invoices."
-        },
-        "upcomingDues0To7Days": {
-          "type": "number",
-          "description": "The total sum of remaining balances for invoices due in the next 0 to 7 days."
-        },
-        "upcomingDues8To15Days": {
-          "type": "number",
-          "description": "The total sum of remaining balances for invoices due in the next 8 to 15 days."
-        },
-        "upcomingDues16To30Days": {
-          "type": "number",
-          "description": "The total sum of remaining balances for invoices due in the next 16 to 30 days."
-        },
-        "aging0To30DaysOverdue": {
-          "type": "number",
-          "description": "The total sum of remaining balances for invoices that are 0-30 days overdue."
-        },
-        "aging31To60DaysOverdue": {
-          "type": "number",
-          "description": "The total sum of remaining balances for invoices that are 31-60 days overdue."
-        },
-        "aging60PlusDaysOverdue": {
-          "type": "number",
-          "description": "The total sum of remaining balances for invoices that are 60+ days overdue."
-        },
-        "lastUpdatedAt": {
+        "updatedAt": {
           "type": "string",
-          "description": "Timestamp when these dashboard statistics were last updated.",
+          "description": "Timestamp when settings were last updated.",
           "format": "date-time"
         }
       },
-      "required": [
-        "id",
-        "totalOutstanding",
-        "totalOverdue",
-        "upcomingDues0To7Days",
-        "upcomingDues8To15Days",
-        "upcomingDues16To30Days",
-        "aging0To30DaysOverdue",
-        "aging31To60DaysOverdue",
-        "aging60PlusDaysOverdue",
-        "lastUpdatedAt"
-      ]
+      "required": ["userId", "currency", "updatedAt"]
     }
   },
   "auth": {
@@ -355,7 +314,7 @@
           "schema": {
             "$ref": "#/backend/entities/Branch"
           },
-          "description": "Top-level collection for managing operational branch profiles. Access is typically restricted to global administrators for creation/updates, and to authorized finance team/branch managers for read operations. Includes `branchId` as a path parameter."
+          "description": "Top-level collection for managing operational branch profiles."
         }
       },
       {
@@ -365,7 +324,7 @@
           "schema": {
             "$ref": "#/backend/entities/Supplier"
           },
-          "description": "Top-level collection for managing supplier profiles. Access is typically restricted to global administrators for creation/updates, and to authorized finance team/branch managers for read operations. Includes `supplierId` as a path parameter."
+          "description": "Top-level collection for managing supplier profiles."
         }
       },
       {
@@ -375,13 +334,7 @@
           "schema": {
             "$ref": "#/backend/entities/Invoice"
           },
-          "description": "Central collection for all purchase invoices. Each document includes denormalized `branchId`, `supplierId`, and `uploadedByUserId` for Authorization Independence. Access is granted to users with `branchMemberships` to the invoice's `branchId` or global finance/admin roles.",
-          "params": [
-            {
-              "name": "invoiceId",
-              "description": "The unique identifier for the Invoice document."
-            }
-          ]
+          "description": "Central collection for all purchase invoices."
         }
       },
       {
@@ -391,84 +344,20 @@
           "schema": {
             "$ref": "#/backend/entities/Payment"
           },
-          "description": "Records individual payments. Each document must include denormalized `branchId` (from the context of the related invoices) and `paidByUserId` for Authorization Independence. Note: `branchId` is crucial for authorization and should be explicitly added to the Payment schema. Access is granted to users with `branchMemberships` to the payment's `branchId` or global finance/admin roles.",
-          "params": [
-            {
-              "name": "paymentId",
-              "description": "The unique identifier for the Payment document."
-            }
-          ]
+          "description": "Records individual payments."
         }
       },
       {
-        "path": "/invoiceAllocations/{allocationId}",
+        "path": "/userSettings/{userId}",
         "definition": {
-          "entityName": "InvoiceAllocation",
+          "entityName": "UserSettings",
           "schema": {
-            "$ref": "#/backend/entities/InvoiceAllocation"
+            "$ref": "#/backend/entities/UserSettings"
           },
-          "description": "Represents how a payment is applied to a specific invoice. Each document must include denormalized `branchId` (from the associated invoice) for Authorization Independence. Note: `branchId` is crucial for authorization and should be explicitly added to the InvoiceAllocation schema. Access is granted to users with `branchMemberships` to the allocation's `branchId` or global finance/admin roles.",
-          "params": [
-            {
-              "name": "allocationId",
-              "description": "The unique identifier for the InvoiceAllocation document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/dashboardStatistics/{statisticId}",
-        "definition": {
-          "entityName": "DashboardStatistic",
-          "schema": {
-            "$ref": "#/backend/entities/DashboardStatistic"
-          },
-          "description": "Stores pre-aggregated financial statistics. Document `statisticId` can be 'global' for system-wide stats or a specific `branchId` for branch-level stats. Access is controlled based on the `statisticId`: global roles for 'global', and `branchMemberships` for branch-specific IDs.",
-          "params": [
-            {
-              "name": "statisticId",
-              "description": "Identifier for the statistic document (e.g., 'global' or a specific branch ID)."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/adminUsers/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Dedicated collection to identify global administrators. The existence of a document at `userId` confirms global admin status, allowing for simple `exists()` checks in security rules. (Assumes a 'User' entity exists in the backend for schema referencing.)"
-        }
-      },
-      {
-        "path": "/financeTeamUsers/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Dedicated collection to identify members of the global finance team. The existence of a document at `userId` confirms global finance team status, allowing for simple `exists()` checks in security rules. (Assumes a 'User' entity exists in the backend for schema referencing.)"
-        }
-      },
-      {
-        "path": "/branchMemberships/{branchId}_{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Dedicated collection for user-to-branch access control. The existence of a document with ID `{branchId}_{userId}` grants `userId` access to `branchId`. Used for `exists()` checks in security rules to ensure Authorization Independence for branch-specific data. (Assumes a 'User' entity exists in the backend for schema referencing, as BranchMembership is an implicit entity.)",
-          "params": [
-            {
-              "name": "branchId_userId",
-              "description": "Composite identifier for the branch membership, combining the branch ID and the user ID."
-            }
-          ]
+          "description": "Private collection for user preferences and settings."
         }
       }
     ],
-    "reasoning": "The Firestore data structure for DuesFlow is designed with paramount focus on Authorization Independence, Structural Segregation, and clear Access Modeling, as mandated. \n\n**Authorization Independence (CRITICAL):** To eliminate hierarchical authorization dependencies (`get()`) in security rules and support atomic operations, authorization contexts are denormalized where necessary. \n\n*   For `Invoice` documents, `branchId`, `supplierId`, and `uploadedByUserId` are directly embedded. This allows rules to check `resource.data.branchId` (or `uploadedByUserId`) against the requesting user's permissions without needing to fetch parent `Branch` or `Supplier` documents.\n*   Similarly, for `Payment` and `InvoiceAllocation` documents, `branchId` (denormalized from the associated branch context) and `paidByUserId` are explicitly included (though 'branchId' needs to be explicitly added to their schemas). This ensures that a payment record or allocation can be validated against the user's branch permissions without costly or insecure `get()` operations.\n\n*   Crucially, user-to-branch access is managed through a dedicated `branchMemberships` collection. Instead of using `get()` on a user's profile to find their branches, or on a branch document to find its members, a document at `/branchMemberships/{branchId}_{userId}` acts as a 'permission slip'. A security rule can simply use `exists(/branchMemberships/$(branchId)_$(request.auth.uid))` to verify a user's access to a specific branch, satisfying the 'Authorization Independence' mandate for branch-level access control.\n*   Global roles (admin, finance team) are similarly managed via dedicated top-level collections (`adminUsers`, `financeTeamUsers`), enabling simple `exists()` checks in rules without relying on user profile `get()` calls for global permissions.\n\n**Structural Segregation (Homogeneous Security Posture):** Each collection is designed to hold documents with a uniform security posture, simplifying security rules. \n\n*   `branches` and `suppliers` are global entities managed by administrators.\n*   `invoices`, `payments`, and `invoiceAllocations` are central collections, but access is filtered by the denormalized `branchId` and `uploadedByUserId`/`paidByUserId` based on the user's `branchMemberships`. This avoids mixing publicly accessible data with private data within the same collection. \n*   `dashboardStatistics` is segregated by document ID into global statistics (`id: 'global'`) and branch-specific statistics (`id: '{branchId}'`), allowing different access rules.\n\n**QAPs (Rules are not Filters):** The structure fully supports secure `list` operations.\n\n*   For `invoices`, `payments`, and `invoiceAllocations`, queries can include `where('branchId', '==', 'userSelectedBranchId')`. Firebase security rules then validate that `request.auth.uid` indeed has permission for `userSelectedBranchId` by checking `exists(/branchMemberships/$(resource.data.branchId)_$(request.auth.uid))`. This prevents users from listing documents from unauthorized branches and ensures rules prevent unintended data exposure rather than relying on client-side filtering. This pattern ensures that any `list` operation will only return data the user is explicitly authorized to view for the specified branch.\n*   Global and branch-specific dashboard statistics are queried by their explicit `id` (e.g., `/dashboardStatistics/global` or `/dashboardStatistics/{branchId}`). Rules then apply `exists()` checks on `adminUsers`, `financeTeamUsers`, or `branchMemberships` based on the requested `statisticId`.\n\n**Invariants:** Timestamps (`createdAt`, `updatedAt`) and ownership (`uploadedByUserId`, `paidByUserId`) are included in relevant entities to support data integrity. The `status` field in `Invoice` explicitly models the finite state, enhancing predictability. Consistent naming conventions (`branchId`, `supplierId`, `{userId}`) are used throughout for clarity and debuggability."
+    "reasoning": "Standard Firestore mapping for financial and administrative entities."
   }
 }

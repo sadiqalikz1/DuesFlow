@@ -26,11 +26,13 @@ import { Download, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { differenceInDays } from 'date-fns';
+import { useCurrency } from '@/hooks/use-currency';
 
 export default function Dashboard() {
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
   const { firestore } = useFirestore();
   const { user } = useUser();
+  const { formatCurrency } = useCurrency();
 
   const branchesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -200,7 +202,7 @@ export default function Dashboard() {
                         {branches?.find(b => b.id === inv.branchId)?.name || 'Unknown'}
                       </TableCell>
                       <TableCell className="text-sm">{inv.dueDate}</TableCell>
-                      <TableCell className="text-right font-bold">₹{(inv.remainingBalance || 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-bold">{formatCurrency(inv.remainingBalance || 0)}</TableCell>
                       <TableCell className="text-center">
                         <Badge 
                           variant={inv.status === 'Overdue' ? 'destructive' : 'secondary'}

@@ -11,10 +11,12 @@ import { Input } from '@/components/ui/input';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Search, Download, Filter } from 'lucide-react';
+import { useCurrency } from '@/hooks/use-currency';
 
 export default function ReportsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const { firestore } = useFirestore();
+  const { formatCurrency } = useCurrency();
 
   const invoicesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -105,8 +107,8 @@ export default function ReportsPage() {
                     <TableCell className="text-muted-foreground">
                       {branches?.find(b => b.id === inv.branchId)?.name || 'Unknown'}
                     </TableCell>
-                    <TableCell className="text-right">₹{(inv.invoiceAmount || 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-bold text-primary">₹{(inv.remainingBalance || 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(inv.invoiceAmount || 0)}</TableCell>
+                    <TableCell className="text-right font-bold text-primary">{formatCurrency(inv.remainingBalance || 0)}</TableCell>
                     <TableCell className="text-center">
                       <Badge 
                         variant={inv.status === 'Overdue' ? 'destructive' : 'secondary'}

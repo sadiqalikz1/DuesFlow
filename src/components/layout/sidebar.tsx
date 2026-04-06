@@ -1,5 +1,5 @@
 
-"use client";
+'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -12,7 +12,8 @@ import {
   Building2, 
   LogOut,
   ChevronRight,
-  LogIn
+  LogIn,
+  Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ const navItems = [
   { name: 'Ledger Reports', href: '/reports', icon: History },
   { name: 'Suppliers', href: '/suppliers', icon: Users },
   { name: 'Branches', href: '/branches', icon: Building2 },
+  { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 export function Sidebar() {

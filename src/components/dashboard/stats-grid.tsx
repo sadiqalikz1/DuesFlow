@@ -1,31 +1,29 @@
 
+'use client';
+
 import { Statistics } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
   IndianRupee, 
   AlertCircle, 
   CalendarClock, 
-  ArrowUpRight 
+  ArrowUpRight,
+  Wallet
 } from 'lucide-react';
+import { useCurrency } from '@/hooks/use-currency';
 
 interface StatsGridProps {
   stats: Statistics;
 }
 
-const formatCurrency = (val: number) => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(val);
-};
-
 export function StatsGrid({ stats }: StatsGridProps) {
+  const { formatCurrency } = useCurrency();
+  
   const items = [
     {
       label: 'Total Outstanding',
       value: formatCurrency(stats.totalOutstanding),
-      icon: IndianRupee,
+      icon: Wallet,
       color: 'bg-primary',
       trend: '+12% from last month'
     },
