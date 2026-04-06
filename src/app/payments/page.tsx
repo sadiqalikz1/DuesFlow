@@ -21,7 +21,7 @@ import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { useCurrency } from '@/hooks/use-currency';
 
 export default function PaymentsPage() {
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
   const { user } = useUser();
   const { formatCurrency, currencyCode } = useCurrency();
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');

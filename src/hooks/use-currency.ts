@@ -10,7 +10,7 @@ import { doc } from 'firebase/firestore';
  */
 export function useCurrency() {
   const { user } = useUser();
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
 
   const settingsRef = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;

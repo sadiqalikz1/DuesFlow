@@ -78,8 +78,25 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     const unsubscribe = onAuthStateChanged(
       auth,
-      (firebaseUser) => { // Auth state determined
+      async (firebaseUser) => { // Auth state determined
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
+
+        // Sync profile to Firestore if user exists
+        if (firebaseUser && firestore) {
+          const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+          const userRef = doc(firestore, 'users', firebaseUser.uid);
+          try {
+            await setDoc(userRef, {
+              uid: firebaseUser.uid,
+              displayName: firebaseUser.displayName,
+              email: firebaseUser.email,
+              photoURL: firebaseUser.photoURL,
+              lastLogin: serverTimestamp()
+            }, { merge: true });
+          } catch (e) {
+            console.error("FirebaseProvider: Profile sync error:", e);
+          }
+        }
       },
       (error) => { // Auth listener error
         console.error("FirebaseProvider: onAuthStateChanged error:", error);
@@ -87,7 +104,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       }
     );
     return () => unsubscribe(); // Cleanup
-  }, [auth]); // Depends on the auth instance
+  }, [auth, firestore]); // Depends on the auth instance and firestore
 
   // Memoize the context value
   const contextValue = useMemo((): FirebaseContextState => {

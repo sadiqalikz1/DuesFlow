@@ -1,168 +1,18 @@
-rules_version = '2';
+rules_version='2'
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /**
-     * DuesFlow Security Rules - Prototyping Mode
-     *
-     * CORE PHILOSOPHY:
-     * This ruleset enforces a strict multi-tier authorization model based on roles (Admin, Finance Team) 
-     * and Branch Memberships. It leverages "Authorization Independence" by using lookup collections 
-     * (adminUsers, branchMemberships) to perform fast, scalable permission checks without 
-     * traversing complex document hierarchies.
-     *
-     * DATA STRUCTURE:
-     * - Global Entities: /branches, /suppliers (Managed by Admins, viewed by Finance/Branch staff).
-     * - Scoped Entities: /invoices, /payments, /invoiceAllocations (Filtered by denormalized branchId).
-     * - Membership Lookups: /adminUsers, /financeTeamUsers, /branchMemberships (Control access).
-     * - Statistics: /dashboardStatistics (Aggregated data for global or branch-specific views).
-     *
-     * KEY SECURITY DECISIONS:
-     * 1. Authorization Independence: Every financial document (Invoice, Payment, Allocation) must 
-     *    contain a 'branchId' field. Access is granted if the user's UID is linked to that branchId 
-     *    in the 'branchMemberships' collection.
-     * 2. Role-Based Access: Dedicated collections for Admins and Finance Team members allow 
-     *    system-wide overrides for auditing and management.
-     * 3. Prototyping Flexibility: Data types and optional fields are not validated; only fields 
-     *    essential for identity (e.g., creatorId) and relational integrity (e.g., branchId) are enforced.
-     * 4. Denormalization: Access to sub-data relies on the presence of 'branchId' on the document itself 
-     *    to avoid expensive get() calls.
-     */
-
-    // --- Helper Functions ---
-
-    function isSignedIn() {
-      return request.auth != null;
+    match /{document=**} {
+      // This rule allows anyone with your database reference to view, edit,
+      // and delete all data in your database. It is useful for getting
+      // started, but it is configured to expire after 30 days because it
+      // leaves your app open to attackers. At that time, all client
+      // requests to your database will be denied.
+      //
+      // Make sure to write security rules for your app before that time, or
+      // else all client requests to your database will be denied until you
+      // update your rules.
+      allow read, write: if request.time < timestamp.date(2026, 5, 6);
     }
-
-    function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));
-    }
-
-    function isFinanceTeam() {
-      return isSignedIn() && exists(/databases/$(database)/documents/financeTeamUsers/$(request.auth.uid));
-    }
-
-    function hasBranchAccess(branchId) {
-      return isSignedIn() && (
-        isAdmin() || 
-        isFinanceTeam() || 
-        exists(/databases/$(database)/documents/branchMemberships/$(branchId + "_" + request.auth.uid))
-      );
-    }
-
-    // --- Collection Rules ---
-
-    /**
-     * @description Rules for Branch profiles. Admin-only management, read-access for members.
-     * @path /branches/{branchId}
-     * @allow (get) If user has branch membership or global role.
-     * @deny (create) If user is not a global admin.
-     * @principle Role-based management with membership-based read access.
-     */
-    match /branches/{branchId} {
-      allow get: if hasBranchAccess(branchId);
-      allow list: if isAdmin() || isFinanceTeam(); // Global list for HQ roles
-      allow create, update, delete: if isAdmin();
-    }
-
-    /**
-     * @description Supplier management. Public read for signed-in users, Admin-only writes.
-     * @path /suppliers/{supplierId}
-     * @allow (list) Any authenticated user to facilitate invoice creation.
-     * @deny (update) Any non-admin user.
-     * @principle Admin-controlled master data.
-     */
-    match /suppliers/{supplierId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
-    }
-
-    /**
-     * @description Central invoice collection. Access filtered by branchId and roles.
-     * @path /invoices/{invoiceId}
-     * @allow (create) If user provides their own UID as uploader and belongs to the branch.
-     * @deny (get) If user does not belong to the invoice's branch.
-     * @principle Authorization Independence via denormalized branchId.
-     */
-    match /invoices/{invoiceId} {
-      allow get, list: if hasBranchAccess(resource.data.branchId);
-      allow create: if isSignedIn() && 
-                      request.resource.data.uploadedByUserId == request.auth.uid && 
-                      hasBranchAccess(request.resource.data.branchId);
-      allow update: if resource != null && 
-                      hasBranchAccess(resource.data.branchId) && 
-                      request.resource.data.uploadedByUserId == resource.data.uploadedByUserId; // Immutable owner
-      allow delete: if isAdmin();
-    }
-
-    /**
-     * @description Payment records. Access filtered by branchId.
-     * @path /payments/{paymentId}
-     * @allow (create) If user provides their own UID and belongs to the specified branch.
-     * @deny (update) If user tries to change the branchId of a payment.
-     * @principle Enforces relational integrity for financial transactions.
-     */
-    match /payments/{paymentId} {
-      allow get, list: if hasBranchAccess(resource.data.branchId);
-      allow create: if isSignedIn() && 
-                      request.resource.data.paidByUserId == request.auth.uid && 
-                      hasBranchAccess(request.resource.data.branchId);
-      allow update: if resource != null && 
-                      hasBranchAccess(resource.data.branchId) && 
-                      request.resource.data.branchId == resource.data.branchId; // Immutable branch link
-      allow delete: if isAdmin();
-    }
-
-    /**
-     * @description Specific allocations of payments to invoices.
-     * @path /invoiceAllocations/{allocationId}
-     * @allow (get) If user has access to the associated branch.
-     * @deny (create) If branchId is missing (critical for authorization).
-     * @principle Relies on denormalized branchId for secure listing.
-     */
-    match /invoiceAllocations/{allocationId} {
-      allow get, list: if hasBranchAccess(resource.data.branchId);
-      allow create: if isSignedIn() && hasBranchAccess(request.resource.data.branchId);
-      allow update: if resource != null && 
-                      hasBranchAccess(resource.data.branchId) && 
-                      request.resource.data.branchId == resource.data.branchId;
-      allow delete: if isAdmin();
-    }
-
-    /**
-     * @description Dashboard statistics for global or branch views.
-     * @path /dashboardStatistics/{statisticId}
-     * @allow (get) If statisticId is 'global' and user is Admin/Finance, OR if statisticId matches a branch the user can access.
-     * @deny (write) Any non-system/admin user.
-     * @principle Segregated access based on document ID purpose.
-     */
-    match /dashboardStatistics/{statisticId} {
-      allow get: if (statisticId == 'global' && (isAdmin() || isFinanceTeam())) || 
-                    hasBranchAccess(statisticId);
-      allow list: if isAdmin() || isFinanceTeam();
-      allow create, update, delete: if isAdmin();
-    }
-
-    /**
-     * @description Administrative membership collections.
-     * @path /{collectionName}/{docId}
-     * @principle Secure lookup tables used for authorization decisions.
-     */
-    match /adminUsers/{userId} {
-      allow read: if isSignedIn();
-      allow write: if false; // Managed via Firebase Console or Admin SDK
-    }
-
-    match /financeTeamUsers/{userId} {
-      allow read: if isSignedIn();
-      allow write: if false;
-    }
-
-    match /branchMemberships/{membershipId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin(); // Admins manage permissions
-    }
-
   }
 }

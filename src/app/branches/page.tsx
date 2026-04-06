@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 
 export default function BranchesPage() {
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
   const branchesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'branches');

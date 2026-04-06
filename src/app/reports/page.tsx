@@ -15,7 +15,7 @@ import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 
 export default function ReportsPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
   const { formatCurrency } = useCurrency();
 
   const invoicesQuery = useMemoFirebase(() => {

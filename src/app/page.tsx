@@ -30,7 +30,7 @@ import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 
 export default function Dashboard() {
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
   const { user } = useUser();
   const { formatCurrency } = useCurrency();
 

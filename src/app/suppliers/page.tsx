@@ -15,7 +15,7 @@ import Link from 'next/link';
 import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 
 export default function SuppliersPage() {
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
   const suppliersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'suppliers');

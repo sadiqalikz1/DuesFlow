@@ -14,7 +14,7 @@ import { useCurrency } from '@/hooks/use-currency';
 
 export default function SupplierLedgerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: supplierId } = use(params);
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
   const { formatCurrency } = useCurrency();
 
   // 1. Fetch Supplier Details

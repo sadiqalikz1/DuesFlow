@@ -29,7 +29,7 @@ const CURRENCIES = [
 export default function SettingsPage() {
   const { user } = useUser();
   const auth = useAuth();
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
