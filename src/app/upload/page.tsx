@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from 'react';
-import { Sidebar } from '@/components/layout/sidebar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +23,7 @@ import { collection, serverTimestamp } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { addDays, format, isBefore, parse } from 'date-fns';
 import * as XLSX from 'xlsx';
+import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 
 export default function UploadPage() {
   const { firestore } = useFirestore();
@@ -95,7 +95,6 @@ export default function UploadPage() {
 
         for (let index = 0; index < rows.length; index++) {
           const row = rows[index];
-          // Robust column mapping for various Tally exports
           const invNo = row['Invoice Number'] || row['Voucher No'] || row['Ref No'] || row['Reference'];
           const invDateStr = row['Date (YYYY-MM-DD)'] || row['Date'] || row['Voucher Date'];
           const supplierName = row['Supplier Name'] || row['Particulars'] || row['Ledger Name'];
@@ -113,10 +112,8 @@ export default function UploadPage() {
             unregistered.push(supplierName.toString());
             skippedCount++;
           } else {
-            // Attempt to parse date robustly
             let invDate = new Date(invDateStr);
             if (isNaN(invDate.getTime())) {
-              // Try common Tally format DD-MM-YYYY
               try {
                 invDate = parse(invDateStr, 'dd-MM-yyyy', new Date());
               } catch (e) {
@@ -169,13 +166,18 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 ml-64 p-8">
-        <header className="mb-8">
-          <h2 className="text-3xl font-bold font-headline text-slate-900 tracking-tight">Import Purchase Data</h2>
-          <p className="text-muted-foreground mt-1">Directly import extracted Tally reports for automated credit tracking.</p>
-        </header>
+    <SidebarInset className="flex-1 bg-background">
+      <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 md:px-8">
+        <SidebarTrigger className="-ml-1" />
+        <div className="flex-1">
+          <h2 className="text-xl md:text-2xl font-bold font-headline text-slate-900 tracking-tight">Import Purchase Data</h2>
+        </div>
+      </header>
+
+      <main className="p-4 md:p-8">
+        <div className="mb-8">
+          <p className="text-muted-foreground">Directly import extracted Tally reports for automated credit tracking.</p>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Card className="border-none shadow-sm">
@@ -198,7 +200,7 @@ export default function UploadPage() {
                 </Select>
               </div>
 
-              <div className="border-2 border-dashed border-slate-200 rounded-xl p-12 text-center bg-slate-50/50 hover:bg-slate-50 transition-colors">
+              <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 md:p-12 text-center bg-slate-50/50 hover:bg-slate-50 transition-colors">
                 <div className="flex flex-col items-center">
                   <div className="p-4 bg-white rounded-full shadow-sm mb-4">
                     <FileSpreadsheet className="w-8 h-8 text-primary" />
@@ -213,15 +215,15 @@ export default function UploadPage() {
                     onChange={handleFileChange}
                   />
                   <Label htmlFor="file-upload">
-                    <Button variant="outline" asChild>
+                    <Button variant="outline" size="sm" asChild>
                       <span>Browse Files</span>
                     </Button>
                   </Label>
-                  {file && <p className="mt-4 text-xs font-bold text-primary">{file.name}</p>}
+                  {file && <p className="mt-4 text-xs font-bold text-primary truncate max-w-full px-4">{file.name}</p>}
                 </div>
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-4">
                 <Button 
                   className="flex-1 bg-primary" 
                   disabled={!file || uploading || !selectedBranchId}
@@ -250,7 +252,7 @@ export default function UploadPage() {
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
                   <AlertTitle>Import Complete</AlertTitle>
                   <AlertDescription>
-                    {summary.imported} invoices added successfully. {summary.skipped} records skipped or requiring attention.
+                    {summary.imported} added successfully. {summary.skipped} records skipped.
                   </AlertDescription>
                 </Alert>
               )}
@@ -289,31 +291,31 @@ export default function UploadPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-4 p-4 rounded-xl bg-slate-50 border">
-                <div className="mt-1"><Info className="w-4 h-4 text-primary" /></div>
+                <div className="mt-1"><Info className="w-4 h-4 text-primary shrink-0" /></div>
                 <div>
                   <h5 className="text-sm font-bold text-slate-900">Name Matching</h5>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Ensure "Supplier Name" in your Excel exactly matches the names registered in DuesFlow. The system is case-insensitive but spaces and symbols must match.
+                    Ensure "Supplier Name" exactly matches the names registered in DuesFlow.
                   </p>
                 </div>
               </div>
 
               <div className="flex gap-4 p-4 rounded-xl bg-slate-50 border">
-                <div className="mt-1"><Info className="w-4 h-4 text-primary" /></div>
+                <div className="mt-1"><Info className="w-4 h-4 text-primary shrink-0" /></div>
                 <div>
                   <h5 className="text-sm font-bold text-slate-900">Date Formats</h5>
                   <p className="text-xs text-muted-foreground mt-1">
-                    We support YYYY-MM-DD and DD-MM-YYYY formats. If the system can't read a date, it defaults to today's date for safety.
+                    We support YYYY-MM-DD and DD-MM-YYYY formats.
                   </p>
                 </div>
               </div>
 
               <div className="flex gap-4 p-4 rounded-xl bg-slate-50 border">
-                <div className="mt-1"><AlertCircle className="w-4 h-4 text-orange-500" /></div>
+                <div className="mt-1"><AlertCircle className="w-4 h-4 text-orange-500 shrink-0" /></div>
                 <div>
                   <h5 className="text-sm font-bold text-slate-900">Credit Control</h5>
                   <p className="text-xs text-muted-foreground mt-1">
-                    If "Credit Days" is not provided in your sheet, DuesFlow defaults to 30 days or the supplier's specific default setting.
+                    If "Credit Days" is missing, DuesFlow defaults to 30 days.
                   </p>
                 </div>
               </div>
@@ -321,6 +323,6 @@ export default function UploadPage() {
           </Card>
         </div>
       </main>
-    </div>
+    </SidebarInset>
   );
 }

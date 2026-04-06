@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { Sidebar } from '@/components/layout/sidebar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +18,7 @@ import {
 import { CreditCard, Info, CheckCircle2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
+import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 
 export default function PaymentsPage() {
   const { firestore } = useFirestore();
@@ -118,13 +118,18 @@ export default function PaymentsPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 ml-64 p-8">
-        <header className="mb-8">
-          <h2 className="text-3xl font-bold font-headline text-slate-900 tracking-tight">Log Payment</h2>
-          <p className="text-muted-foreground mt-1">Apply payments to pending invoices using First In, First Out (FIFO) logic.</p>
-        </header>
+    <SidebarInset className="flex-1 bg-background">
+      <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 md:px-8">
+        <SidebarTrigger className="-ml-1" />
+        <div className="flex-1">
+          <h2 className="text-xl md:text-2xl font-bold font-headline text-slate-900 tracking-tight">Log Payment</h2>
+        </div>
+      </header>
+
+      <main className="p-4 md:p-8">
+        <div className="mb-8">
+          <p className="text-muted-foreground">Apply payments to pending invoices using First In, First Out (FIFO) logic.</p>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <Card className="lg:col-span-1 border-none shadow-sm h-fit">
@@ -191,14 +196,14 @@ export default function PaymentsPage() {
                 <CardTitle className="text-lg font-headline">FIFO Distribution Preview</CardTitle>
                 <CardDescription>Proposed allocation to oldest pending invoices</CardDescription>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 overflow-x-auto">
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
-                      <TableHead className="font-bold">Invoice</TableHead>
-                      <TableHead className="font-bold">Due Date</TableHead>
-                      <TableHead className="font-bold text-right">Pending</TableHead>
-                      <TableHead className="font-bold text-right">Allocation</TableHead>
+                      <TableHead className="font-bold min-w-[100px]">Invoice</TableHead>
+                      <TableHead className="font-bold min-w-[100px]">Due Date</TableHead>
+                      <TableHead className="font-bold text-right min-w-[100px]">Pending</TableHead>
+                      <TableHead className="font-bold text-right min-w-[100px]">Allocation</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -240,6 +245,6 @@ export default function PaymentsPage() {
           </div>
         </div>
       </main>
-    </div>
+    </SidebarInset>
   );
 }

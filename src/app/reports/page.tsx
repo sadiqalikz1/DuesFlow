@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from 'react';
-import { Sidebar } from '@/components/layout/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +11,7 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Search, Download, Filter } from 'lucide-react';
 import { useCurrency } from '@/hooks/use-currency';
+import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 
 export default function ReportsPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,25 +45,24 @@ export default function ReportsPage() {
   }) || [];
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 ml-64 p-8">
-        <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-3xl font-bold font-headline text-slate-900 tracking-tight">Ledger Reports</h2>
-            <p className="text-muted-foreground mt-1">Detailed transaction history and outstanding balances.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Export PDF
-            </Button>
-            <Button variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Export Excel
-            </Button>
-          </div>
-        </header>
+    <SidebarInset className="flex-1 bg-background">
+      <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 md:px-8">
+        <SidebarTrigger className="-ml-1" />
+        <div className="flex-1">
+          <h2 className="text-xl md:text-2xl font-bold font-headline text-slate-900 tracking-tight">Ledger Reports</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="hidden sm:flex">
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        </div>
+      </header>
+
+      <main className="p-4 md:p-8">
+        <div className="mb-8">
+          <p className="text-muted-foreground">Detailed transaction history and outstanding balances.</p>
+        </div>
 
         <Card className="border-none shadow-sm mb-8">
           <CardHeader className="pb-4">
@@ -77,22 +76,22 @@ export default function ReportsPage() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Button variant="ghost" className="text-muted-foreground">
+              <Button variant="ghost" size="sm" className="text-muted-foreground self-start md:self-auto">
                 <Filter className="mr-2 h-4 w-4" />
                 Advanced Filters
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader className="bg-slate-50 border-t">
                 <TableRow>
-                  <TableHead className="font-bold">Date</TableHead>
-                  <TableHead className="font-bold">Invoice #</TableHead>
-                  <TableHead className="font-bold">Supplier</TableHead>
-                  <TableHead className="font-bold">Branch</TableHead>
-                  <TableHead className="font-bold text-right">Amount</TableHead>
-                  <TableHead className="font-bold text-right">Balance</TableHead>
+                  <TableHead className="font-bold min-w-[100px]">Date</TableHead>
+                  <TableHead className="font-bold min-w-[120px]">Invoice #</TableHead>
+                  <TableHead className="font-bold min-w-[150px]">Supplier</TableHead>
+                  <TableHead className="font-bold hidden lg:table-cell">Branch</TableHead>
+                  <TableHead className="font-bold text-right min-w-[100px]">Amount</TableHead>
+                  <TableHead className="font-bold text-right min-w-[100px]">Balance</TableHead>
                   <TableHead className="font-bold text-center">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -104,7 +103,7 @@ export default function ReportsPage() {
                     <TableCell className="font-medium">
                       {suppliers?.find(s => s.id === inv.supplierId)?.name || 'Unknown'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground hidden lg:table-cell">
                       {branches?.find(b => b.id === inv.branchId)?.name || 'Unknown'}
                     </TableCell>
                     <TableCell className="text-right">{formatCurrency(inv.invoiceAmount || 0)}</TableCell>
@@ -131,6 +130,6 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </main>
-    </div>
+    </SidebarInset>
   );
 }

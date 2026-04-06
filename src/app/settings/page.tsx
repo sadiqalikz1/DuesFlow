@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sidebar } from '@/components/layout/sidebar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -16,6 +15,7 @@ import {
 import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
 import { doc, serverTimestamp } from 'firebase/firestore';
 import { Settings, Globe, CheckCircle2, Loader2 } from 'lucide-react';
+import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 
 const CURRENCIES = [
   { code: 'INR', name: 'Indian Rupee (₹)' },
@@ -66,18 +66,23 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 ml-64 p-8">
-        <header className="mb-8">
-          <h2 className="text-3xl font-bold font-headline text-slate-900 tracking-tight">Settings</h2>
-          <p className="text-muted-foreground mt-1">Manage your account preferences and application defaults.</p>
-        </header>
+    <SidebarInset className="flex-1 bg-background">
+      <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 md:px-8">
+        <SidebarTrigger className="-ml-1" />
+        <div className="flex-1">
+          <h2 className="text-xl md:text-2xl font-bold font-headline text-slate-900 tracking-tight">Settings</h2>
+        </div>
+      </header>
 
-        <div className="max-w-2xl">
+      <main className="p-4 md:p-8">
+        <div className="mb-8">
+          <p className="text-muted-foreground">Manage your account preferences and application defaults.</p>
+        </div>
+
+        <div className="max-w-2xl mx-auto lg:mx-0">
           <Card className="border-none shadow-sm">
             <CardHeader className="flex flex-row items-center gap-4">
-              <div className="p-2 bg-primary/10 rounded-lg">
+              <div className="p-2 bg-primary/10 rounded-lg shrink-0">
                 <Globe className="h-5 w-5 text-primary" />
               </div>
               <div>
@@ -104,11 +109,11 @@ export default function SettingsPage() {
                 )}
               </div>
 
-              <div className="pt-4 flex items-center gap-4">
+              <div className="pt-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <Button 
                   onClick={handleSave} 
                   disabled={saving || isLoading}
-                  className="bg-primary min-w-[120px]"
+                  className="bg-primary min-w-[120px] w-full sm:w-auto"
                 >
                   {saving ? (
                     <>
@@ -129,7 +134,7 @@ export default function SettingsPage() {
 
           <Card className="border-none shadow-sm mt-8 opacity-60">
             <CardHeader className="flex flex-row items-center gap-4">
-              <div className="p-2 bg-slate-100 rounded-lg">
+              <div className="p-2 bg-slate-100 rounded-lg shrink-0">
                 <Settings className="h-5 w-5 text-slate-500" />
               </div>
               <div>
@@ -145,6 +150,6 @@ export default function SettingsPage() {
           </Card>
         </div>
       </main>
-    </div>
+    </SidebarInset>
   );
 }

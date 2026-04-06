@@ -1,6 +1,7 @@
 
 'use client';
 
+import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -11,14 +12,25 @@ import {
   History, 
   Building2, 
   LogOut,
-  ChevronRight,
   LogIn,
-  Settings
+  Settings,
+  Menu
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useUser, useAuth, initiateAnonymousSignIn } from '@/firebase';
 import { signOut } from 'firebase/auth';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarTrigger,
+  useSidebar
+} from '@/components/ui/sidebar';
 
 const navItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -30,10 +42,11 @@ const navItems = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
-export function Sidebar() {
+export function AppSidebar() {
   const pathname = usePathname();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const { state } = useSidebar();
 
   const handleAuth = () => {
     if (user) {
@@ -44,72 +57,77 @@ export function Sidebar() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-64 border-r bg-white shadow-sm fixed left-0 top-0">
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
+    <Sidebar collapsible="icon" className="border-r bg-white shadow-sm">
+      <SidebarHeader className="p-4 flex flex-row items-center gap-3 h-16">
+        <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shrink-0">
           <CreditCard className="text-white w-6 h-6" />
         </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-primary font-headline">DuesFlow</h1>
-          <p className="text-[10px] text-muted-foreground uppercase font-semibold">Financial Control</p>
-        </div>
-      </div>
+        {state !== 'collapsed' && (
+          <div className="flex flex-col">
+            <h1 className="text-lg font-bold tracking-tight text-primary font-headline leading-tight">DuesFlow</h1>
+            <p className="text-[10px] text-muted-foreground uppercase font-semibold">Financial Control</p>
+          </div>
+        )}
+      </SidebarHeader>
 
-      <nav className="flex-1 px-4 py-4 space-y-1">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link key={item.name} href={item.href}>
-              <div className={cn(
-                "flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 group cursor-pointer",
-                isActive 
-                  ? "bg-primary text-white shadow-md shadow-primary/20" 
-                  : "text-muted-foreground hover:bg-secondary hover:text-primary"
-              )}>
-                <div className="flex items-center gap-3">
-                  <item.icon className={cn("w-5 h-5", isActive ? "text-white" : "text-muted-foreground group-hover:text-primary")} />
-                  <span className="font-medium text-sm">{item.name}</span>
-                </div>
-                {isActive && <ChevronRight className="w-4 h-4" />}
-              </div>
-            </Link>
-          );
-        })}
-      </nav>
+      <SidebarContent className="px-2">
+        <SidebarMenu>
+          {navItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <SidebarMenuItem key={item.name}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive}
+                  tooltip={item.name}
+                  className={cn(
+                    "transition-all duration-200 h-10 px-3",
+                    isActive 
+                      ? "bg-primary text-white hover:bg-primary/90 hover:text-white" 
+                      : "text-muted-foreground hover:bg-secondary hover:text-primary"
+                  )}
+                >
+                  <Link href={item.href}>
+                    <item.icon className={cn("w-5 h-5")} />
+                    <span>{item.name}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarContent>
 
-      <div className="p-4 border-t bg-slate-50/50">
-        <div className="flex items-center gap-3 px-3 py-3 mb-4 rounded-xl border bg-white shadow-sm">
-          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white font-bold text-xs uppercase">
+      <SidebarFooter className="p-4 border-t bg-slate-50/50">
+        <div className={cn(
+          "flex items-center gap-3 px-3 py-2 rounded-xl border bg-white shadow-sm transition-all duration-200",
+          state === 'collapsed' ? "p-1 justify-center border-none shadow-none bg-transparent" : ""
+        )}>
+          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white font-bold text-xs uppercase shrink-0">
             {user ? (user.displayName?.[0] || user.email?.[0] || 'U') : '?'}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold truncate">{user ? (user.displayName || user.email || 'Active User') : 'Guest'}</p>
-            <p className="text-[10px] text-muted-foreground truncate">{user ? 'Authorized Session' : 'No Session'}</p>
-          </div>
+          {state !== 'collapsed' && (
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold truncate">{user ? (user.displayName || user.email || 'Active User') : 'Guest'}</p>
+              <p className="text-[10px] text-muted-foreground truncate">{user ? 'Authorized Session' : 'No Session'}</p>
+            </div>
+          )}
         </div>
         <Button 
           variant="ghost" 
           className={cn(
-            "w-full justify-start",
-            user ? "text-destructive hover:text-destructive hover:bg-destructive/10" : "text-primary hover:text-primary hover:bg-primary/10"
+            "w-full justify-start mt-2 px-3",
+            user ? "text-destructive hover:text-destructive hover:bg-destructive/10" : "text-primary hover:text-primary hover:bg-primary/10",
+            state === 'collapsed' ? "justify-center px-0" : ""
           )} 
           size="sm"
           onClick={handleAuth}
           disabled={isUserLoading}
         >
-          {user ? (
-            <>
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign Out
-            </>
-          ) : (
-            <>
-              <LogIn className="mr-2 h-4 w-4" />
-              Sign In
-            </>
-          )}
+          {user ? <LogOut className="h-4 w-4 shrink-0" /> : <LogIn className="h-4 w-4 shrink-0" />}
+          {state !== 'collapsed' && <span className="ml-2">{user ? 'Sign Out' : 'Sign In'}</span>}
         </Button>
-      </div>
-    </div>
+      </SidebarFooter>
+    </Sidebar>
   );
 }

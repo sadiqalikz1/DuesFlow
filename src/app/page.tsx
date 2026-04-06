@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { Sidebar } from '@/components/layout/sidebar';
 import { StatsGrid } from '@/components/dashboard/stats-grid';
 import { AgingReport } from '@/components/dashboard/aging-report';
 import { 
@@ -22,11 +21,12 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Download, Plus } from 'lucide-react';
+import { Download, Plus, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { differenceInDays } from 'date-fns';
 import { useCurrency } from '@/hooks/use-currency';
+import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 
 export default function Dashboard() {
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
@@ -101,20 +101,33 @@ export default function Dashboard() {
   }, [invoices]);
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 ml-64 p-8">
-        <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+    <SidebarInset className="flex-1 overflow-auto bg-background">
+      <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 md:px-8">
+        <SidebarTrigger className="-ml-1" />
+        <div className="flex-1">
+          <h2 className="text-xl md:text-2xl font-bold font-headline text-slate-900 tracking-tight truncate">Dues Overview</h2>
+        </div>
+        <div className="flex items-center gap-2">
+           <Link href="/upload" className="hidden sm:block">
+            <Button size="sm" className="bg-primary">
+              <Plus className="mr-2 h-4 w-4" />
+              New Entry
+            </Button>
+          </Link>
+        </div>
+      </header>
+
+      <main className="p-4 md:p-8 space-y-8">
+        <section className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold font-headline text-slate-900 tracking-tight">Dues Overview</h2>
-            <p className="text-muted-foreground mt-1">Real-time aggregation of your accounts payable.</p>
+            <p className="text-muted-foreground">Real-time aggregation of your accounts payable.</p>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border shadow-sm">
               <span className="text-xs font-semibold text-muted-foreground uppercase">Branch:</span>
               <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                <SelectTrigger className="w-[180px] border-none shadow-none focus:ring-0 h-8">
+                <SelectTrigger className="w-[140px] md:w-[180px] border-none shadow-none focus:ring-0 h-8">
                   <SelectValue placeholder="All Branches" />
                 </SelectTrigger>
                 <SelectContent>
@@ -125,25 +138,19 @@ export default function Dashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <Button variant="outline" className="h-10">
+            <Button variant="outline" size="sm" className="h-10">
               <Download className="mr-2 h-4 w-4" />
               Export
             </Button>
-            <Link href="/upload">
-              <Button className="h-10 bg-primary hover:bg-primary/90">
-                <Plus className="mr-2 h-4 w-4" />
-                New Entry
-              </Button>
-            </Link>
           </div>
-        </header>
+        </section>
 
         <StatsGrid stats={stats} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <AgingReport data={agingData} />
           
-          <Card className="border-none shadow-sm overflow-hidden bg-white">
+          <Card className="border-none shadow-sm overflow-hidden bg-white h-full">
             <CardHeader>
               <CardTitle className="text-lg font-headline">Recent Activity</CardTitle>
             </CardHeader>
@@ -156,38 +163,38 @@ export default function Dashboard() {
                       <div className="flex-1 space-y-1">
                         <p className="text-sm font-semibold">Invoice {inv.invoiceNumber}</p>
                         <p className="text-xs text-muted-foreground">Due on {inv.dueDate}</p>
-                        <p className="text-[10px] text-muted-foreground font-medium uppercase">{inv.status}</p>
+                        <Badge variant="outline" className="text-[9px] uppercase font-bold py-0">{inv.status}</Badge>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground italic">No recent activity detected.</p>
+                  <p className="text-sm text-muted-foreground italic text-center py-10">No recent activity detected.</p>
                 )}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="mt-8 mb-12">
+        <div className="mb-12">
           <Card className="border-none shadow-sm overflow-hidden bg-white">
             <CardHeader className="flex flex-row items-center justify-between pb-4 border-b">
               <div>
                 <CardTitle className="text-lg font-headline">Critical Pending Invoices</CardTitle>
-                <p className="text-xs text-muted-foreground mt-1">Showing top entries requiring immediate action.</p>
+                <p className="text-xs text-muted-foreground mt-1">Requiring immediate action.</p>
               </div>
               <Link href="/reports">
                 <Button variant="ghost" size="sm" className="text-primary font-semibold">View All</Button>
               </Link>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader className="bg-slate-50">
                   <TableRow>
-                    <TableHead className="font-bold">Invoice #</TableHead>
-                    <TableHead className="font-bold">Supplier</TableHead>
-                    <TableHead className="font-bold">Branch</TableHead>
-                    <TableHead className="font-bold">Due Date</TableHead>
-                    <TableHead className="font-bold text-right">Amount</TableHead>
+                    <TableHead className="font-bold min-w-[120px]">Invoice #</TableHead>
+                    <TableHead className="font-bold min-w-[150px]">Supplier</TableHead>
+                    <TableHead className="font-bold hidden md:table-cell">Branch</TableHead>
+                    <TableHead className="font-bold min-w-[100px]">Due Date</TableHead>
+                    <TableHead className="font-bold text-right min-w-[100px]">Amount</TableHead>
                     <TableHead className="font-bold text-center">Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -198,7 +205,7 @@ export default function Dashboard() {
                       <TableCell className="font-medium">
                         {suppliers?.find(s => s.id === inv.supplierId)?.name || 'Unknown'}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="text-muted-foreground hidden md:table-cell">
                         {branches?.find(b => b.id === inv.branchId)?.name || 'Unknown'}
                       </TableCell>
                       <TableCell className="text-sm">{inv.dueDate}</TableCell>
@@ -224,6 +231,6 @@ export default function Dashboard() {
           </Card>
         </div>
       </main>
-    </div>
+    </SidebarInset>
   );
 }
