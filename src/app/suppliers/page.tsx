@@ -5,13 +5,14 @@ import { useState } from 'react';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Mail, Phone, ExternalLink } from 'lucide-react';
+import { Plus, Mail, Phone, ExternalLink, LayoutList } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, serverTimestamp } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Link from 'next/link';
 
 export default function SuppliersPage() {
   const { firestore } = useFirestore();
@@ -137,9 +138,12 @@ export default function SuppliersPage() {
                 </div>
                 
                 <div className="pt-4 border-t flex gap-2">
-                  <Button variant="ghost" size="sm" className="flex-1 text-primary hover:bg-primary/5">
-                    View Ledger
-                  </Button>
+                  <Link href={`/suppliers/${supplier.id}`} className="flex-1">
+                    <Button variant="ghost" size="sm" className="w-full text-primary hover:bg-primary/5">
+                      <LayoutList className="mr-2 h-4 w-4" />
+                      View Ledger
+                    </Button>
+                  </Link>
                   <Button variant="ghost" size="sm" className="w-10 px-0">
                     <ExternalLink className="h-4 w-4" />
                   </Button>
