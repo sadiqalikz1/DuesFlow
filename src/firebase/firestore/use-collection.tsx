@@ -92,8 +92,14 @@ export function useCollection<T = any>(
 
         setError(contextualError);
         setData(null);
-        setIsLoading(false);
-        errorEmitter.emit('permission-error', contextualError);
+        // Only emit global error if the user is supposedly authenticated
+        // This avoids crashing the app during the initial load or redirect to login.
+        import('firebase/auth').then(({ getAuth }) => {
+          const auth = getAuth();
+          if (auth.currentUser) {
+            errorEmitter.emit('permission-error', contextualError);
+          }
+        });
       }
     );
 

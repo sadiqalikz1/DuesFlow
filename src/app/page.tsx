@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { StatsGrid } from '@/components/dashboard/stats-grid';
 import { AgingReport } from '@/components/dashboard/aging-report';
 import { 
@@ -30,24 +31,32 @@ import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 
 export default function Dashboard() {
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const router = useRouter();
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const { formatCurrency } = useCurrency();
 
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
+
   const branchesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return collection(firestore, 'branches');
-  }, [firestore]);
+  }, [firestore, user]);
   const { data: branches } = useCollection(branchesQuery);
 
   const suppliersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return collection(firestore, 'suppliers');
-  }, [firestore]);
+  }, [firestore, user]);
   const { data: suppliers } = useCollection(suppliersQuery);
 
   const invoicesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     const invCol = collection(firestore, 'invoices');
     if (selectedBranch !== 'all') {
       return query(invCol, where('branchId', '==', selectedBranch), limit(100));
