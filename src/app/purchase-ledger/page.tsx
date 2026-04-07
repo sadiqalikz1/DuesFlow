@@ -103,37 +103,41 @@ export default function PurchaseLedgerPage() {
     });
 
     debitNotes?.forEach(dn => {
-      const amount = dn.amount || 0;
-      all.push({
-        id: dn.id,
-        type: 'debitNote',
-        date: dn.date || '',
-        supplierName: suppliers?.find(s => s.id === dn.supplierId)?.name || 'Unknown',
-        referenceNumber: dn.referenceNumber || '',
-        amount: amount,
-        debitAmount: amount,
-        creditAmount: 0,
-        reason: dn.reason || '',
-        branchId: dn.branchId || '',
-        supplierId: dn.supplierId || '',
-      });
+      const amount = dn.amount || dn.debitAmount || dn.noteAmount || 0;
+      if (amount > 0) {
+        all.push({
+          id: dn.id,
+          type: 'debitNote',
+          date: dn.date || '',
+          supplierName: suppliers?.find(s => s.id === dn.supplierId)?.name || 'Unknown',
+          referenceNumber: dn.referenceNumber || '',
+          amount: amount,
+          debitAmount: amount,
+          creditAmount: 0,
+          reason: dn.reason || '',
+          branchId: dn.branchId || '',
+          supplierId: dn.supplierId || '',
+        });
+      }
     });
 
     creditNotes?.forEach(cn => {
-      const amount = cn.amount || 0;
-      all.push({
-        id: cn.id,
-        type: 'creditNote',
-        date: cn.date || '',
-        supplierName: suppliers?.find(s => s.id === cn.supplierId)?.name || 'Unknown',
-        referenceNumber: cn.referenceNumber || '',
-        amount: amount,
-        debitAmount: 0,
-        creditAmount: amount,
-        reason: cn.reason || '',
-        branchId: cn.branchId || '',
-        supplierId: cn.supplierId || '',
-      });
+      const amount = cn.amount || cn.creditAmount || cn.noteAmount || 0;
+      if (amount > 0) {
+        all.push({
+          id: cn.id,
+          type: 'creditNote',
+          date: cn.date || '',
+          supplierName: suppliers?.find(s => s.id === cn.supplierId)?.name || 'Unknown',
+          referenceNumber: cn.referenceNumber || '',
+          amount: amount,
+          debitAmount: 0,
+          creditAmount: amount,
+          reason: cn.reason || '',
+          branchId: cn.branchId || '',
+          supplierId: cn.supplierId || '',
+        });
+      }
     });
 
     return all;

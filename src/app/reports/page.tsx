@@ -1,19 +1,18 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import { Search, Download, Filter, ChevronRight, Loader2 } from 'lucide-react';
 import { useCurrency } from '@/hooks/use-currency';
 import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import Link from 'next/link';
-import { useEffect } from 'react';
 
 interface LedgerSummary {
   supplierId: string;
@@ -34,7 +33,7 @@ export default function ReportsPage() {
 
   const invoicesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'invoices'), orderBy('dueDate', 'desc'));
+    return collection(firestore, 'invoices');
   }, [firestore]);
   const { data: invoices, isLoading: invoicesLoading } = useCollection(invoicesQuery);
 
@@ -74,13 +73,15 @@ export default function ReportsPage() {
         status: 'Current' as const,
       };
 
-      const invoiceAmount = inv.amount || inv.invoiceAmount || 0;
-      const paidAmount = inv.paidAmount || 0;
-      const remaining = invoiceAmount - paidAmount;
+      const invoiceAmount = inv.invoiceAmount || inv.totalAmount || inv.amount || 0;
+      const remaining = inv.remainingBalance || 0;
+      const paidAmount = invoiceAmount - remaining;
 
-      existing.totalInvoiced += invoiceAmount;
-      existing.totalPaid += paidAmount;
-      existing.outstandingBalance += remaining;
+      if (invoiceAmount > 0) {
+        existing.totalInvoiced += invoiceAmount;
+        existing.totalPaid += paidAmount;
+        existing.outstandingBalance += remaining;
+      }
 
       // Calculate days overdue
       if (inv.dueDate) {
@@ -109,9 +110,11 @@ export default function ReportsPage() {
         status: 'Current' as const,
       };
 
-      const dnAmount = dn.amount || 0;
-      existing.totalInvoiced += dnAmount;
-      existing.outstandingBalance += dnAmount;
+      const dnAmount = dn.amount || dn.debitAmount || dn.noteAmount || 0;
+      if (dnAmount > 0) {
+        existing.totalInvoiced += dnAmount;
+        existing.outstandingBalance += dnAmount;
+      }
 
       ledgerMap.set(dn.supplierId, existing);
     });
@@ -130,20 +133,24 @@ export default function ReportsPage() {
         status: 'Current' as const,
       };
 
-      const cnAmount = cn.amount || 0;
-      existing.outstandingBalance -= cnAmount;
+      const cnAmount = cn.amount || cn.creditAmount || cn.noteAmount || 0;
+      if (cnAmount > 0) {
+        existing.outstandingBalance -= cnAmount;
+      }
 
       ledgerMap.set(cn.supplierId, existing);
     });
 
     // Convert to array, filter only outstanding, and set status
-    return Array.from(ledgerMap.values())
+    const result = Array.from(ledgerMap.values())
       .filter(ledger => ledger.outstandingBalance > 0) // Only outstanding
       .map(ledger => ({
         ...ledger,
         status: ledger.daysOverdue > 30 ? 'Critical' : ledger.daysOverdue > 0 ? 'Overdue' : 'Current',
       }))
       .sort((a, b) => b.outstandingBalance - a.outstandingBalance);
+    
+    return result;
   }, [invoices, debitNotes, creditNotes, suppliers]);
 
   // Filter ledgers by search term
@@ -196,6 +203,13 @@ export default function ReportsPage() {
       </header>
 
       <div className="flex flex-1 flex-col gap-6 p-4 md:p-8 bg-slate-50/40">
+        {invoicesLoading ? (
+          <div className="p-12 h-screen flex flex-col items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="mt-4 text-slate-500 font-medium">Loading ledgers...</p>
+          </div>
+        ) : (
+          <>
         {/* Summary Card */}
         <Card className="border-none shadow-sm ring-1 ring-slate-100 rounded-2xl bg-gradient-to-br from-primary/5 to-primary/10">
           <CardContent className="pt-6">
@@ -343,6 +357,8 @@ export default function ReportsPage() {
             )}
           </CardContent>
         </Card>
+          </>
+        )}
       </div>
     </SidebarInset>
   );
