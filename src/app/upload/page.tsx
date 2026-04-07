@@ -27,6 +27,9 @@ import {
   BookmarkCheck,
   ChevronDown,
   MapPin,
+  ArrowLeft,
+  Filter,
+  Check,
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -68,7 +71,16 @@ interface ParsedRow {
   isUnregistered: boolean;
   isSkipped: boolean;   // rejected by user in confirmation dialog
   isValid: boolean;
-  error?: string;
+  errorCode?: 'DUPLICATE_REF' | 'MISSING_DATA' | 'INVALID_DATE' | 'ZERO_AMOUNT' | 'NEGATIVE_AMOUNT';
+  errorDetail?: string;
+}
+
+interface FileMetadata {
+  rowCount: number;
+  minDate: Date | null;
+  maxDate: Date | null;
+  totalVolume: number;
+  unmappedCols: number;
 }
 
 // ─── System Columns ──────────────────────────────────────────────────────────
@@ -157,6 +169,10 @@ export default function UploadPage() {
   const [importType, setImportType] = useState<'invoices' | 'payments'>('invoices');
   const [mappingState, setMappingState] = useState<Record<string, string>>({});
   const [isMappingMode, setIsMappingMode] = useState(false);
+  const [currentStep, setCurrentStep] = useState<'upload' | 'mapping' | 'verify' | 'commit' | 'success'>('upload');
+  const [fileMetadata, setFileMetadata] = useState<FileMetadata | null>(null);
+  const [batchMemo, setBatchMemo] = useState('');
+  const [accountingPeriod, setAccountingPeriod] = useState('');
 
   // Supplier confirmation dialog
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -215,12 +231,49 @@ export default function UploadPage() {
           const headers = data[0].map((h: any) => h?.toString() || '');
           setFileHeaders(headers);
           setFileData(data);
+          detectFileMetadata(data);
+          setCurrentStep('upload');
         }
       } catch {
         setError('Could not read headers from file.');
       }
     };
     reader.readAsBinaryString(selectedFile);
+  };
+
+  const detectFileMetadata = (data: any[][]) => {
+    if (data.length <= 1) return;
+    let minD = new Date(8640000000000000);
+    let maxD = new Date(-8640000000000000);
+    let total = 0;
+    let validDates = 0;
+
+    data.slice(1).forEach(row => {
+      if (!Array.isArray(row)) return;
+      row.forEach(cell => {
+        if (cell === undefined || cell === null) return;
+        // Check for numbers
+        if (typeof cell === 'number' && cell > 1000) {
+          // Could be a date code (approx 1990 to 2050)
+          if (cell > 32874 && cell < 55000) { 
+            const d = parseDate(cell);
+            if (isValidDate(d)) {
+              if (d < minD) minD = d;
+              if (d > maxD) maxD = d;
+              validDates++;
+            }
+          }
+        }
+      });
+    });
+
+    setFileMetadata({
+      rowCount: data.length - 1,
+      minDate: validDates > 0 ? minD : null,
+      maxDate: validDates > 0 ? maxD : null,
+      totalVolume: total,
+      unmappedCols: data[0].length,
+    });
   };
 
   // ── Preset Loading ────────────────────────────────────────────────────────
@@ -303,7 +356,7 @@ export default function UploadPage() {
       setError('Please upload a valid file first.');
       return;
     }
-    setIsMappingMode(true);
+    setCurrentStep('mapping');
   };
 
   // ── Process Mapping → detect new suppliers → show confirm dialog ──────────
@@ -333,41 +386,76 @@ export default function UploadPage() {
     }
 
     const parsed: ParsedRow[] = [];
+    const seenRefs = new Set<string>();
+
     fileData.slice(1).forEach((row: any[], idx: number) => {
       if (!row || row.length === 0) return;
-      const refNo = row[headerIndices['refNumber']];
+      const refNoRaw = row[headerIndices['refNumber']];
       const dateVal = row[headerIndices['date']];
-      const supplierName = row[headerIndices['supplierName']];
+      const supplierNameRaw = row[headerIndices['supplierName']];
       const amountRaw = row[headerIndices['amount']];
+      
+      const refNumber = refNoRaw?.toString().trim() || '';
+      const supplierName = supplierNameRaw?.toString().trim() || '';
       const amount = cleanNumeric(amountRaw);
       const cdIdx = headerIndices['creditDays'];
       const creditDays = cdIdx !== undefined ? parseInt(row[cdIdx]) || 30 : 30;
 
-      if (!refNo || !supplierName || isNaN(amount) || amount === 0) return;
+      let isValid = true;
+      let errorCode: ParsedRow['errorCode'];
+      let errorDetail: string | undefined;
+
+      if (!refNumber || !supplierName) {
+        isValid = false;
+        errorCode = 'MISSING_DATA';
+        errorDetail = 'Reference Number and Party Name are mandatory.';
+      } else if (isNaN(amount) || amount === 0) {
+        isValid = false;
+        errorCode = 'ZERO_AMOUNT';
+        errorDetail = 'Transaction amount cannot be zero.';
+      } else if (amount < 0) {
+        isValid = false;
+        errorCode = 'NEGATIVE_AMOUNT';
+        errorDetail = 'Negative amounts should be uploaded as separate adjustments.';
+      } else if (seenRefs.has(refNumber)) {
+        isValid = false;
+        errorCode = 'DUPLICATE_REF';
+        errorDetail = `Duplicate reference found in file: ${refNumber}`;
+      }
 
       const dateObj = parseDate(dateVal);
+      if (!isValidDate(dateObj)) {
+        isValid = false;
+        errorCode = 'INVALID_DATE';
+        errorDetail = 'Could not parse date format.';
+      }
+
+      if (isValid) seenRefs.add(refNumber);
+
       const supplier = suppliers?.find(
-        s => s.name.toLowerCase().trim() === supplierName.toString().trim().toLowerCase()
+        s => s.name.toLowerCase().trim() === supplierName.toLowerCase().trim()
       );
-      const dueDate = importType === 'invoices' ? addDays(dateObj, creditDays) : null;
+      const dueDate = importType === 'invoices' && isValid ? addDays(dateObj, creditDays) : null;
 
       parsed.push({
         id: `row-${idx}`,
-        refNumber: refNo.toString().trim(),
-        date: format(dateObj, 'yyyy-MM-dd'),
-        supplierName: supplierName.toString().trim(),
+        refNumber,
+        date: isValidDate(dateObj) ? format(dateObj, 'yyyy-MM-dd') : 'Invalid',
+        supplierName,
         amount,
         creditDays: importType === 'invoices' ? creditDays : undefined,
         dueDate: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined,
         isUnregistered: !supplier,
-        isSkipped: false,
-        isValid: true,
+        isSkipped: !isValid, // Auto-skip invalid rows
+        isValid,
+        errorCode,
+        errorDetail,
       });
     });
 
-    if (parsed.length === 0) {
+    if (parsed.filter(r => r.isValid).length === 0) {
       setError(
-        `Reconciliation failed: ${fileData.length - 1} rows analyzed, but none matched the mandatory criteria. Check if your chosen columns have values in every row.`
+        `Analysis Failed: ${fileData.length - 1} rows processed, but all rows have validation errors. Please check your mapping or file content.`
       );
       return;
     }
@@ -388,7 +476,7 @@ export default function UploadPage() {
     } else {
       // All suppliers known — go straight to preview
       setPreviewData(parsed);
-      setIsMappingMode(false);
+      setCurrentStep('verify');
     }
   };
 
@@ -396,9 +484,10 @@ export default function UploadPage() {
     // Mark rows for skipped suppliers
     const updated = pendingParsed.map(row => ({
       ...row,
-      isSkipped: row.isUnregistered && !confirmedNames.has(row.supplierName),
+      isSkipped: row.isSkipped || (row.isUnregistered && !confirmedNames.has(row.supplierName)),
     }));
     setPreviewData(updated);
+    setCurrentStep('verify');
     setShowConfirmDialog(false);
     setPendingParsed([]);
     setNewSuppliersToConfirm([]);
@@ -537,6 +626,8 @@ export default function UploadPage() {
         importedCount: imported,
         skippedCount: skipped,
         newSuppliersCreated,
+        batchMemo: batchMemo.trim() || 'Standard Sync',
+        accountingPeriod: accountingPeriod.trim() || format(new Date(), 'MMM yyyy'),
       });
     } catch (e) {
       console.error('Failed to log upload history', e);
@@ -544,6 +635,7 @@ export default function UploadPage() {
 
     setSummary({ total: previewData.length, imported, skipped, newSuppliers: newSuppliersCreated });
     setSuccess(true);
+    setCurrentStep('success');
     setUploading(false);
     setPreviewData([]);
   };
@@ -627,17 +719,40 @@ export default function UploadPage() {
       </Dialog>
 
       {/* Header */}
-      <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-4 border-b bg-background/80 backdrop-blur-md px-4 md:px-8">
+      <header className="sticky top-0 z-10 flex h-20 shrink-0 items-center gap-4 border-b bg-background/80 backdrop-blur-md px-4 md:px-8">
         <SidebarTrigger className="-ml-1" />
         <div className="h-4 w-[1px] bg-slate-200 hidden md:block" />
-        <h2 className="text-lg font-bold font-headline text-slate-900 tracking-tight">Sync Accounting Center</h2>
+        
+        <div className="flex flex-col">
+          <h2 className="text-lg font-bold font-headline text-slate-900 tracking-tight">Sync Accounting Center</h2>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {[
+              { id: 'upload', label: 'Analysis' },
+              { id: 'mapping', label: 'Mapping' },
+              { id: 'verify', label: 'Verify' },
+              { id: 'commit', label: 'Sync' },
+            ].map((step, i, arr) => (
+              <div key={step.id} className="flex items-center">
+                <span className={`text-[10px] font-black uppercase tracking-wider ${
+                  currentStep === step.id ? 'text-primary' : 'text-slate-400'
+                }`}>
+                  {step.label}
+                </span>
+                {i < arr.length - 1 && <div className="w-4 h-px bg-slate-200 mx-2" />}
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="ml-auto flex items-center gap-3">
           <Link href="/upload/history">
-            <Button variant="ghost" size="sm" className="rounded-full text-xs font-bold text-slate-500 hover:text-primary gap-1.5">
-              <History className="w-3.5 h-3.5" /> Upload History
+            <Button variant="ghost" size="sm" className="rounded-full text-xs font-bold text-slate-500 hover:text-primary gap-1.5 h-9 px-4">
+              <History className="w-3.5 h-3.5" /> View History
             </Button>
           </Link>
+          <div className="h-8 w-px bg-slate-100 mx-1" />
           <Tabs defaultValue="invoices" value={importType} onValueChange={(v: any) => {
+            if (currentStep !== 'upload' && !confirm('Switching import type will reset your current progress. Proceed?')) return;
             setImportType(v);
             setFileData([]);
             setFileHeaders([]);
@@ -645,7 +760,8 @@ export default function UploadPage() {
             setMappingState({});
             setFile(null);
             setSuccess(false);
-          }} className="w-[280px]">
+            setCurrentStep('upload');
+          }} className="w-[240px]">
             <TabsList className="grid w-full grid-cols-2 h-9 bg-slate-100/50 p-1 rounded-full">
               <TabsTrigger value="invoices" className="rounded-full text-[10px] font-bold uppercase tracking-wider">Purchases</TabsTrigger>
               <TabsTrigger value="payments" className="rounded-full text-[10px] font-bold uppercase tracking-wider">Payments</TabsTrigger>
@@ -665,15 +781,15 @@ export default function UploadPage() {
                   <div className="p-2 bg-primary/10 rounded-xl">
                     {importType === 'invoices' ? <ReceiptText className="w-4 h-4 text-primary" /> : <CreditCard className="w-4 h-4 text-primary" />}
                   </div>
-                  {importType === 'invoices' ? 'Purchases Data Feed' : 'Payments Data Feed'}
+                  Sync configuration
                 </CardTitle>
-                <CardDescription className="text-xs">Upload exports from Tally, Busy, or Excel.</CardDescription>
+                <CardDescription className="text-xs">Configure where and how data is synced.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Branch */}
                 <div className="space-y-3">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Destination Branch</Label>
-                  <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+                  <Select value={selectedBranchId} onValueChange={setSelectedBranchId} disabled={currentStep !== 'upload'}>
                     <SelectTrigger className="h-11 bg-slate-50 border-none rounded-2xl px-4 text-sm font-medium">
                       <SelectValue placeholder="Select Branch" />
                     </SelectTrigger>
@@ -685,49 +801,123 @@ export default function UploadPage() {
                   </Select>
                 </div>
 
-                {/* File Drop Zone */}
-                <div className="border-2 border-dashed border-slate-200 rounded-[2rem] p-10 text-center bg-slate-50/50 hover:bg-slate-50 transition-all group relative overflow-hidden">
-                  <div className="relative z-10">
-                    <FileSpreadsheet className="w-12 h-12 text-primary mx-auto mb-4 opacity-40 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500" />
-                    <Input type="file" id="file-upload" accept=".xlsx, .xls, .csv" className="hidden" onChange={handleFileChange} />
-                    <Label htmlFor="file-upload" className="cursor-pointer">
-                      <Button variant="outline" size="sm" asChild className="rounded-full px-6 border-slate-200 bg-white">
-                        <span>{file ? 'Change Dataset' : 'Drop File Here'}</span>
-                      </Button>
-                    </Label>
-                    {file && (
-                      <div className="mt-4 flex items-center justify-center gap-2">
-                        <div className="bg-green-100 text-green-700 p-1.5 rounded-full"><CheckCircle2 className="w-3 h-3" /></div>
-                        <p className="text-[11px] font-bold text-slate-600 truncate max-w-[150px]">{file.name}</p>
-                      </div>
-                    )}
+                {/* Audit Context (Hidden in initial upload step unless file exists) */}
+                {(currentStep === 'verify' || currentStep === 'commit') && (
+                  <div className="space-y-4 pt-2 border-t border-slate-50 animate-in fade-in duration-500">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Accounting Period</Label>
+                      <Input 
+                        placeholder="e.g. April 2024" 
+                        value={accountingPeriod}
+                        onChange={e => setAccountingPeriod(e.target.value)}
+                        className="h-11 bg-slate-50 border-none rounded-2xl px-4 text-sm font-medium"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Batch Memo / Reference</Label>
+                      <Input 
+                        placeholder="e.g. Final Audit Export" 
+                        value={batchMemo}
+                        onChange={e => setBatchMemo(e.target.value)}
+                        className="h-11 bg-slate-50 border-none rounded-2xl px-4 text-sm font-medium"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* File Drop Zone (Only in upload step) */}
+                {currentStep === 'upload' && (
+                  <div className="border-2 border-dashed border-slate-200 rounded-[2rem] p-10 text-center bg-slate-50/50 hover:bg-slate-50 transition-all group relative overflow-hidden">
+                    <div className="relative z-10">
+                      <FileSpreadsheet className="w-12 h-12 text-primary mx-auto mb-4 opacity-40 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500" />
+                      <Input type="file" id="file-upload" accept=".xlsx, .xls, .csv" className="hidden" onChange={handleFileChange} />
+                      <Label htmlFor="file-upload" className="cursor-pointer">
+                        <Button variant="outline" size="sm" asChild className="rounded-full px-6 border-slate-200 bg-white shadow-sm">
+                          <span>{file ? 'Change Dataset' : 'Drop File Here'}</span>
+                        </Button>
+                      </Label>
+                      {file && (
+                        <div className="mt-4 flex items-center justify-center gap-2">
+                          <div className="bg-green-100 text-green-700 p-1.5 rounded-full"><CheckCircle2 className="w-3 h-3" /></div>
+                          <p className="text-[11px] font-bold text-slate-600 truncate max-w-[150px]">{file.name}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="pt-2 flex flex-col gap-3">
-                  <div className="flex gap-3">
+                  {currentStep === 'upload' && (
+                    <div className="flex gap-3">
+                      <Button
+                        className="flex-1 shadow-lg shadow-primary/20 rounded-full h-11 text-xs font-bold uppercase tracking-wider"
+                        disabled={!file || uploading || !selectedBranchId}
+                        onClick={runAnalyzer}
+                      >
+                        <SearchCode className="w-4 h-4 mr-2" /> Start Analysis
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={downloadTemplate} className="rounded-full w-11 h-11 bg-slate-100 hover:bg-slate-200" title="Download Template">
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
+                  {currentStep !== 'upload' && (
                     <Button
-                      className="flex-1 shadow-lg shadow-primary/20 rounded-full h-11 text-xs font-bold uppercase tracking-wider"
-                      disabled={!file || uploading || !selectedBranchId}
-                      onClick={runAnalyzer}
+                      variant="outline"
+                      className="rounded-full h-11 text-xs font-bold uppercase tracking-wider border-slate-200"
+                      onClick={() => {
+                        if (confirm('Return to file selection? Current mapping will be kept.')) {
+                          setCurrentStep('upload');
+                        }
+                      }}
                     >
-                      <SearchCode className="w-4 h-4 mr-2" /> Run Analyzer
+                      <ArrowLeft className="w-4 h-4 mr-2" /> Back to Source
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={downloadTemplate} className="rounded-full w-11 h-11 bg-slate-100 hover:bg-slate-200" title="Download Template">
-                      <Download className="w-4 h-4" />
-                    </Button>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Info Card */}
+            {/* File Insights Card */}
+            {fileMetadata && (
+              <Card className="border-none shadow-sm ring-1 ring-slate-100 rounded-[2rem] bg-white overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">File Insights</p>
+                    <Info className="w-3.5 h-3.5 text-blue-500" />
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-slate-50 rounded-2xl">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Rows Found</p>
+                      <p className="text-lg font-black text-slate-900">{fileMetadata.rowCount}</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-2xl">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Columns</p>
+                      <p className="text-lg font-black text-slate-900">{fileMetadata.unmappedCols}</p>
+                    </div>
+                  </div>
+                  {fileMetadata.minDate && fileMetadata.maxDate && (
+                    <div className="p-3 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                      <p className="text-[9px] font-bold text-blue-500 uppercase mb-1">Detected Period</p>
+                      <p className="text-[11px] font-black text-blue-700">
+                        {format(fileMetadata.minDate, 'dd MMM yyyy')} — {format(fileMetadata.maxDate, 'dd MMM yyyy')}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             <Alert className="bg-slate-900 border-none text-white rounded-[2rem] p-6">
               <Info className="h-5 w-5 text-blue-400" />
-              <AlertTitle className="text-sm font-bold text-blue-400">Intelligent FIFO</AlertTitle>
+              <AlertTitle className="text-sm font-bold text-blue-400">Step Guidance</AlertTitle>
               <AlertDescription className="text-xs opacity-70 leading-relaxed mt-2 italic">
-                Payments are automatically linked to your oldest outstanding bills first, keeping your aging reports accurate. New suppliers require explicit confirmation before creation.
+                {currentStep === 'upload' && "Upload your Excel file to begin the analysis. We'll automatically scan for dates and total volumes."}
+                {currentStep === 'mapping' && "Tell us which columns in your file represent the Invoice No, Date, Party, and Amount."}
+                {currentStep === 'verify' && "Review the detected transactions. Any duplicate or invalid rows will be automatically flagged for your attention."}
               </AlertDescription>
             </Alert>
           </div>
