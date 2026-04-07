@@ -28,8 +28,9 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // Calculate aging buckets
+    // Calculate aging buckets based on dueDate
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
     const today = now.toISOString().split('T')[0];
 
     const buckets = {
@@ -40,21 +41,29 @@ export async function GET(request: NextRequest) {
     };
 
     invoices.forEach((invoice) => {
+      // Only process unpaid invoices
+      if (invoice.status === 'Paid' || !invoice.dueDate) return;
+      
       const dueDate = new Date(invoice.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      
+      // Only count invoices that are overdue (dueDate < today)
+      if (dueDate >= now) return;
+      
       const daysOverdue = Math.ceil(
         (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
       );
 
-      if (daysOverdue <= 0) {
-        buckets['0-30'] += invoice.remainingBalance || 0;
-      } else if (daysOverdue <= 30) {
-        buckets['0-30'] += invoice.remainingBalance || 0;
+      const balance = invoice.remainingBalance || 0;
+      
+      if (daysOverdue <= 30) {
+        buckets['0-30'] += balance;
       } else if (daysOverdue <= 60) {
-        buckets['31-60'] += invoice.remainingBalance || 0;
+        buckets['31-60'] += balance;
       } else if (daysOverdue <= 90) {
-        buckets['61-90'] += invoice.remainingBalance || 0;
+        buckets['61-90'] += balance;
       } else {
-        buckets['90+'] += invoice.remainingBalance || 0;
+        buckets['90+'] += balance;
       }
     });
 

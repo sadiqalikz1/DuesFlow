@@ -94,7 +94,7 @@ export default function SupplierLedgerPage({ params }: { params: Promise<{ id: s
     const invRows = (invoices || []).map(inv => ({
       Type: 'Purchase',
       'Invoice #': inv.invoiceNumber || inv.refNumber || '—',
-      Date: inv.date || '—',
+      Date: inv.invoiceDate || inv.date || '—',
       'Due Date': inv.dueDate || '—',
       'Total Amount': inv.totalAmount || inv.invoiceAmount || 0,
       'Balance': inv.remainingBalance ?? (inv.totalAmount || 0),
@@ -244,7 +244,7 @@ export default function SupplierLedgerPage({ params }: { params: Promise<{ id: s
                   <TableBody>
                     {invoices?.map((inv) => (
                       <TableRow key={inv.id} className="hover:bg-slate-50/50 transition-colors border-b-slate-50">
-                        <TableCell className="text-xs text-slate-500 font-medium pl-8 py-4">{inv.date || inv.invoiceDate || '—'}</TableCell>
+                        <TableCell className="text-xs text-slate-500 font-medium pl-8 py-4">{inv.invoiceDate || inv.date || '—'}</TableCell>
                         <TableCell className="font-mono text-xs font-black text-slate-700 py-4">{inv.invoiceNumber || '—'}</TableCell>
                         <TableCell className="text-xs text-slate-500 font-medium py-4">{inv.dueDate || '—'}</TableCell>
                         <TableCell className="text-right font-mono text-sm font-bold text-slate-700 py-4">

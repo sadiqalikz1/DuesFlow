@@ -23,7 +23,7 @@ import { collection, query, where, orderBy } from 'firebase/firestore';
 import { useUserRole } from '@/hooks/use-user-role';
 import Link from 'next/link';
 
-type TransactionType = 'invoice' | 'debitNote' | 'creditNote';
+type TransactionType = 'invoice' | 'debitNote' | 'creditNote' | 'payment';
 
 interface Transaction {
   id: string;
@@ -81,6 +81,12 @@ export default function PurchaseLedgerPage() {
   }, [firestore]);
   const { data: creditNotes } = useCollection(creditNotesQuery);
 
+  const paymentsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'payments');
+  }, [firestore]);
+  const { data: payments } = useCollection(paymentsQuery);
+
   const suppliersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'suppliers');
@@ -134,9 +140,9 @@ export default function PurchaseLedgerPage() {
         all.push({
           id: cn.id,
           type: 'creditNote',
-          date: cn.date || '',
+          date: cn.date || cn.noteDate || '',
           supplierName: suppliers?.find(s => s.id === cn.supplierId)?.name || 'Unknown',
-          referenceNumber: cn.referenceNumber || '',
+          referenceNumber: cn.refNumber || cn.referenceNumber || cn.creditNoteNo || '',
           amount: amount,
           debitAmount: 0,
           creditAmount: amount,
@@ -147,8 +153,26 @@ export default function PurchaseLedgerPage() {
       }
     });
 
+    payments?.forEach(pay => {
+      const amount = pay.amount || pay.paymentAmount || 0;
+      if (amount > 0) {
+        all.push({
+          id: pay.id,
+          type: 'payment',
+          date: pay.paymentDate || pay.date || '',
+          supplierName: suppliers?.find(s => s.id === pay.supplierId)?.name || 'Unknown',
+          referenceNumber: pay.refNumber || pay.referenceNumber || pay.paymentRef || '',
+          amount: amount,
+          debitAmount: 0,
+          creditAmount: amount,
+          branchId: pay.branchId || '',
+          supplierId: pay.supplierId || '',
+        });
+      }
+    });
+
     return all;
-  }, [invoices, debitNotes, creditNotes, suppliers]);
+  }, [invoices, debitNotes, creditNotes, payments, suppliers]);
 
   // Apply filters
   const filtered = useMemo(() => {
@@ -228,6 +252,8 @@ export default function PurchaseLedgerPage() {
         return <AlertTriangle className="w-3.5 h-3.5 text-orange-600" />;
       case 'creditNote':
         return <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />;
+      case 'payment':
+        return <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" />;
     }
   };
 
@@ -239,6 +265,8 @@ export default function PurchaseLedgerPage() {
         return 'Debit Note';
       case 'creditNote':
         return 'Credit Note';
+      case 'payment':
+        return 'Payment';
     }
   };
 
@@ -250,6 +278,8 @@ export default function PurchaseLedgerPage() {
         return 'bg-orange-50 text-orange-700 border-orange-200';
       case 'creditNote':
         return 'bg-green-50 text-green-700 border-green-200';
+      case 'payment':
+        return 'bg-purple-50 text-purple-700 border-purple-200';
     }
   };
 

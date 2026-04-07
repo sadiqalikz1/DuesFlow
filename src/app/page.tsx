@@ -60,16 +60,34 @@ export default function Dashboard() {
 
   const stats = useMemo(() => {
     const invs = invoices || [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
     const totalOutstanding = invs.reduce((sum, inv) => sum + (inv.remainingBalance || 0), 0);
-    const totalOverdue = invs.filter(inv => inv.status === 'Overdue').reduce((sum, inv) => sum + (inv.remainingBalance || 0), 0);
+    
+    // Calculate overdue: dueDate < today AND status is not 'Paid'
+    const totalOverdue = invs.filter(inv => {
+      if (inv.status === 'Paid') return false;
+      const dueDate = new Date(inv.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate < today;
+    }).reduce((sum, inv) => sum + (inv.remainingBalance || 0), 0);
+    
+    // Calculate upcoming 7 days: dueDate >= today AND dueDate <= today + 7 days AND status is not 'Paid'
     const upcoming7Days = invs.filter(inv => {
       if (inv.status === 'Paid') return false;
-      const diff = differenceInDays(new Date(inv.dueDate), new Date());
+      const dueDate = new Date(inv.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      const diff = differenceInDays(dueDate, today);
       return diff >= 0 && diff <= 7;
     }).reduce((sum, inv) => sum + (inv.remainingBalance || 0), 0);
+    
+    // Calculate upcoming 30 days: dueDate >= today AND dueDate <= today + 30 days AND status is not 'Paid'
     const upcoming30Days = invs.filter(inv => {
       if (inv.status === 'Paid') return false;
-      const diff = differenceInDays(new Date(inv.dueDate), new Date());
+      const dueDate = new Date(inv.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      const diff = differenceInDays(dueDate, today);
       return diff >= 0 && diff <= 30;
     }).reduce((sum, inv) => sum + (inv.remainingBalance || 0), 0);
 
@@ -83,7 +101,17 @@ export default function Dashboard() {
   }, [invoices]);
 
   const agingData = useMemo(() => {
-    const invs = invoices?.filter(i => i.status === 'Overdue' || i.status === 'Partially Paid') || [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Filter invoices that are unpaid (not 'Paid' status) and overdue
+    const invs = invoices?.filter(i => {
+      if (i.status === 'Paid') return false;
+      const dueDate = new Date(i.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate < today; // Only overdue invoices
+    }) || [];
+    
     const ranges = [
       { range: '0-30 Days', amount: 0, color: 'hsl(var(--primary))' },
       { range: '31-60 Days', amount: 0, color: 'hsl(var(--accent))' },
@@ -92,11 +120,14 @@ export default function Dashboard() {
     ];
 
     invs.forEach(inv => {
-      const diff = differenceInDays(new Date(), new Date(inv.dueDate));
-      if (diff > 0 && diff <= 30) ranges[0].amount += inv.remainingBalance;
-      else if (diff > 30 && diff <= 60) ranges[1].amount += inv.remainingBalance;
-      else if (diff > 60 && diff <= 90) ranges[2].amount += inv.remainingBalance;
-      else if (diff > 90) ranges[3].amount += inv.remainingBalance;
+      const dueDate = new Date(inv.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      const daysOverdue = differenceInDays(today, dueDate);
+      
+      if (daysOverdue >= 0 && daysOverdue <= 30) ranges[0].amount += inv.remainingBalance;
+      else if (daysOverdue > 30 && daysOverdue <= 60) ranges[1].amount += inv.remainingBalance;
+      else if (daysOverdue > 60 && daysOverdue <= 90) ranges[2].amount += inv.remainingBalance;
+      else if (daysOverdue > 90) ranges[3].amount += inv.remainingBalance;
     });
 
     return ranges;
