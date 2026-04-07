@@ -45,10 +45,17 @@ export default function LedgerDetailPage() {
   const firestore = useFirestore();
   const { formatCurrency } = useCurrency();
 
+  // Get current month start and end dates (without timezone offset)
+  const today = new Date();
+  const monthStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthEndDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const monthStart = `${monthStartDate.getFullYear()}-${String(monthStartDate.getMonth() + 1).padStart(2, '0')}-${String(monthStartDate.getDate()).padStart(2, '0')}`;
+  const monthEnd = `${monthEndDate.getFullYear()}-${String(monthEndDate.getMonth() + 1).padStart(2, '0')}-${String(monthEndDate.getDate()).padStart(2, '0')}`;
+
   // State
   const [filterType, setFilterType] = useState<TransactionType | 'all'>('all');
-  const [filterFromDate, setFilterFromDate] = useState('');
-  const [filterToDate, setFilterToDate] = useState('');
+  const [filterFromDate, setFilterFromDate] = useState(monthStart);
+  const [filterToDate, setFilterToDate] = useState(monthEnd);
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;

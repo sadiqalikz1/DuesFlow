@@ -45,11 +45,18 @@ export default function PurchaseLedgerPage() {
   const firestore = useFirestore();
   const { isAdmin, isLoading: isRoleLoading } = useUserRole();
 
+  // Get current month start and end dates (without timezone offset)
+  const today = new Date();
+  const monthStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthEndDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const monthStart = `${monthStartDate.getFullYear()}-${String(monthStartDate.getMonth() + 1).padStart(2, '0')}-${String(monthStartDate.getDate()).padStart(2, '0')}`;
+  const monthEnd = `${monthEndDate.getFullYear()}-${String(monthEndDate.getMonth() + 1).padStart(2, '0')}-${String(monthEndDate.getDate()).padStart(2, '0')}`;
+
   // State
   const [filterSupplier, setFilterSupplier] = useState('');
   const [filterType, setFilterType] = useState<TransactionType | 'all'>('all');
-  const [filterFromDate, setFilterFromDate] = useState('');
-  const [filterToDate, setFilterToDate] = useState('');
+  const [filterFromDate, setFilterFromDate] = useState(monthStart);
+  const [filterToDate, setFilterToDate] = useState(monthEnd);
   const [sortBy, setSortBy] = useState<'date' | 'supplier' | 'amount'>('date');
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
