@@ -1326,8 +1326,21 @@ export default function UploadPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="null_none">-- No Mapping --</SelectItem>
-                              {fileHeaders.map(header => (
-                                <SelectItem key={header} value={header}>{header}</SelectItem>
+                              {fileHeaders.length > 0 && (
+                                <>
+                                  <div className="px-2 py-1.5 text-[10px] font-bold uppercase text-slate-400">File Columns ({fileHeaders.length})</div>
+                                  {fileHeaders.map(header => (
+                                    <SelectItem key={header} value={header}>{header}</SelectItem>
+                                  ))}
+                                  {SYSTEM_COLUMNS['mixed'].some(col => !fileHeaders.includes(col.label)) && (
+                                    <div className="px-2 py-1.5 text-[10px] font-bold uppercase text-slate-400">Available Fields</div>
+                                  )}
+                                </>
+                              )}
+                              {SYSTEM_COLUMNS['mixed'].map(col => (
+                                <SelectItem key={col.key} value={col.label} className="italic text-slate-500">
+                                  {col.label} {fileHeaders.includes(col.label) ? '' : '(not in file)'}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -1354,8 +1367,21 @@ export default function UploadPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="null_none">-- No Mapping --</SelectItem>
-                              {fileHeaders.map(header => (
-                                <SelectItem key={header} value={header}>{header}</SelectItem>
+                              {fileHeaders.length > 0 && (
+                                <>
+                                  <div className="px-2 py-1.5 text-[10px] font-bold uppercase text-slate-400">File Columns ({fileHeaders.length})</div>
+                                  {fileHeaders.map(header => (
+                                    <SelectItem key={header} value={header}>{header}</SelectItem>
+                                  ))}
+                                  {SYSTEM_COLUMNS[importType].some(col => !fileHeaders.includes(col.label)) && (
+                                    <div className="px-2 py-1.5 text-[10px] font-bold uppercase text-slate-400">Available Fields</div>
+                                  )}
+                                </>
+                              )}
+                              {SYSTEM_COLUMNS[importType].map(col => (
+                                <SelectItem key={col.key} value={col.label} className="italic text-slate-500">
+                                  {col.label} {fileHeaders.includes(col.label) ? '' : '(not in file)'}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>

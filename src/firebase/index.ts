@@ -46,7 +46,6 @@ export function getSdks(firebaseApp: FirebaseApp) {
     try {
       firestoreInstance = initializeFirestore(firebaseApp, {
         experimentalForceLongPolling: true,
-        experimentalAutoDetectLongPolling: true,
       });
     } catch (e) {
       // Fallback if initializeFirestore is called multiple times (e.g. during HMR)
