@@ -8,6 +8,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Helper to check if the user is an admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));
+    }
+
     // Default: Deny everything unless specified
     match /{document=**} {
       allow read, write: if false;
@@ -16,23 +22,27 @@ service cloud.firestore {
     // Branches: Authenticated users can list/read
     match /branches/{branchId} {
       allow read: if isAuthenticated();
-      // Admin only for write (to be refined later if needed)
       allow write: if isAuthenticated(); 
     }
 
-    // Suppliers: Authenticated users can read
+    // Suppliers: Authenticated users can read/write
     match /suppliers/{supplierId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated();
     }
 
-    // Invoices: Authenticated users can read/write their branch data
+    // Invoices: Authenticated users can read/write
     match /invoices/{invoiceId} {
       allow read, write: if isAuthenticated();
     }
 
     // Payments: Authenticated users can read/write
     match /payments/{paymentId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Invoice Allocations (FIFO tracking)
+    match /invoiceAllocations/{allocationId} {
       allow read, write: if isAuthenticated();
     }
 
@@ -47,7 +57,20 @@ service cloud.firestore {
       allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Admin & Team Roles: Users can read their own role status
+    // Mapping Presets: Users can manage their own presets
+    match /mappingPresets/{presetId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.createdBy == request.auth.uid || resource.data.isPublic == true);
+      allow create: if isAuthenticated() && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.createdBy == request.auth.uid;
+    }
+
+    // Upload History: Log of all import sessions
+    match /uploadHistory/{historyId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Admin & Team Roles
     match /adminUsers/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow write: if isAdmin();
@@ -62,12 +85,6 @@ service cloud.firestore {
     match /systemSettings/{settingId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
-    }
-
-    // Helper to check if the user is an admin
-    function isAdmin() {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));
     }
   }
 }

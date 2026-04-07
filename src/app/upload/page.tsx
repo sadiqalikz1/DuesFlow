@@ -184,7 +184,10 @@ export default function UploadPage() {
   // Load user's saved presets from Firestore
   const savedPresetsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return collection(firestore, 'mappingPresets');
+    return query(
+      collection(firestore, 'mappingPresets'),
+      where('createdBy', '==', user.uid)
+    );
   }, [firestore, user]);
   const { data: savedPresets } = useCollection(savedPresetsQuery);
 
