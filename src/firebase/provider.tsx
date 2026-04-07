@@ -117,13 +117,18 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
             // 3. Sync profile if authorized or signup is enabled
             const userRef = doc(firestore, 'users', firebaseUser.uid);
-            await setDoc(userRef, {
-              uid: firebaseUser.uid,
-              displayName: firebaseUser.displayName,
-              email: firebaseUser.email,
-              photoURL: firebaseUser.photoURL,
-              lastLogin: serverTimestamp()
-            }, { merge: true });
+            try {
+              await setDoc(userRef, {
+                uid: firebaseUser.uid,
+                displayName: firebaseUser.displayName,
+                email: firebaseUser.email,
+                photoURL: firebaseUser.photoURL,
+                lastLogin: serverTimestamp()
+              }, { merge: true });
+            } catch (syncError) {
+              // Non-critical error - user can still use the app even if profile sync fails
+              console.warn("FirebaseProvider: User profile sync failed (non-critical):", syncError);
+            }
 
             setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
           } catch (e) {

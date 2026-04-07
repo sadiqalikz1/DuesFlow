@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
-  useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, useCollection, useMemoFirebase,
+  useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, useCollection, useMemoFirebase, addDocSafe,
 } from '@/firebase';
 import {
   collection, serverTimestamp, addDoc, query, where, getDocs, orderBy, doc, writeBatch, setDoc
@@ -72,11 +72,12 @@ interface ParsedRow {
   dueDate?: string;
   reason?: string;
   isUnregistered: boolean;
-  isSkipped: boolean;   // rejected by user in confirmation dialog
+  isSkipped: boolean;   // rejected by user in confirmation dialog or duplicate in DB
   isValid: boolean;
   voucherType?: 'invoices' | 'debitNote';  // For mixed uploads, detected from "Vch Type" column
-  errorCode?: 'DUPLICATE_REF' | 'MISSING_DATA' | 'INVALID_DATE' | 'ZERO_AMOUNT' | 'NEGATIVE_AMOUNT';
+  errorCode?: 'DUPLICATE_REF' | 'DUPLICATE_IN_DB' | 'MISSING_DATA' | 'INVALID_DATE' | 'ZERO_AMOUNT' | 'NEGATIVE_AMOUNT';
   errorDetail?: string;
+  isDuplicateInDb?: boolean;  // Mark for database duplicates
 }
 
 interface FileMetadata {
@@ -222,6 +223,7 @@ export default function UploadPage() {
   const [fileData, setFileData] = useState<any[]>([]);
   const [fileHeaders, setFileHeaders] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);  // Loading state for DB duplicate check
   const [progress, setProgress] = useState(0);
   const [success, setSuccess] = useState(false);
   const [summary, setSummary] = useState({ total: 0, imported: 0, skipped: 0, newSuppliers: 0 });
@@ -418,7 +420,7 @@ export default function UploadPage() {
     if (!firestore || !user || !presetName.trim()) return;
     setSavingPreset(true);
     try {
-      await addDoc(collection(firestore, 'mappingPresets'), {
+      await addDocSafe(collection(firestore, 'mappingPresets'), {
         name: presetName.trim(),
         type: importType,
         mapping: mappingState,
@@ -473,6 +475,45 @@ export default function UploadPage() {
     return new Date();
   };
 
+  // ── Check Database for Duplicate Reference Numbers ──────────────────────
+
+  const checkDuplicatesInDatabase = async (refNumbers: string[], collectionType: 'invoices' | 'payments' | 'debitNotes' | 'creditNotes'): Promise<Set<string>> => {
+    if (!firestore || refNumbers.length === 0) {
+      console.log('🔍 Skipping DB check: firestore=', !!firestore, 'refNumbers=', refNumbers.length);
+      return new Set();
+    }
+    
+    console.log('🔍 Starting database duplicate check for', collectionType, 'with', refNumbers.length, 'refs:', refNumbers.slice(0, 3));
+    
+    const duplicates = new Set<string>();
+    const batchSize = 30; // Firestore IN query limit
+    
+    try {
+      for (let i = 0; i < refNumbers.length; i += batchSize) {
+        const batch = refNumbers.slice(i, i + batchSize);
+        console.log(`  Batch ${Math.floor(i / batchSize) + 1}: checking ${batch.length} refs`);
+        const q = query(
+          collection(firestore, collectionType),
+          where('refNumber', 'in', batch)
+        );
+        const snapshot = await getDocs(q);
+        console.log(`  Found ${snapshot.size} matching documents`);
+        snapshot.forEach(doc => {
+          const refNum = doc.data().refNumber;
+          if (refNum) {
+            duplicates.add(refNum);
+            console.log(`    ✓ Duplicate found: ${refNum}`);
+          }
+        });
+      }
+      console.log('✅ Database check complete. Total duplicates found:', duplicates.size);
+    } catch (err) {
+      console.error('❌ Database duplicate check failed:', err);
+    }
+    
+    return duplicates;
+  };
+
   // ── Run Analyzer → open mapping mode ─────────────────────────────────────
 
   const runAnalyzer = () => {
@@ -486,7 +527,9 @@ export default function UploadPage() {
 
   // ── Process Mapping → detect new suppliers → show confirm dialog ──────────
 
-  const processMapping = () => {
+  const processMapping = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    setCheckingDuplicates(true);
     // In mixed mode, we need Date, Supplier Name, Amount, Credit Amount, and Ref Number
     let requiredColumns: string[] = [];
     
@@ -562,6 +605,31 @@ export default function UploadPage() {
       return;
     }
 
+    // Determine collection type for duplicate check
+    let collectionType: 'invoices' | 'payments' | 'debitNotes' | 'creditNotes' = 'invoices';
+    if (importType === 'invoices') collectionType = 'invoices';
+    else if (importType === 'payments') collectionType = 'payments';
+    else if (importType === 'debitNote') collectionType = 'debitNotes';
+    else if (importType === 'creditNote') collectionType = 'creditNotes';
+    
+    console.log('📤 Processing mapping for type:', importType, '-> collection:', collectionType);
+    
+    // Extract all refNumbers from file first
+    const allRefNumbers: string[] = [];
+    fileData.slice(1).forEach((row: any[]) => {
+      if (row && row.length > 0) {
+        const refNoRaw = row[headerIndices['refNumber']];
+        const refNumber = refNoRaw?.toString().trim() || '';
+        if (refNumber) allRefNumbers.push(refNumber);
+      }
+    });
+    
+    // Check database for duplicates
+    console.log('🗄️ About to check database for', allRefNumbers.length, 'reference numbers');
+    const dbDuplicates = await checkDuplicatesInDatabase(allRefNumbers, collectionType);
+    console.log('🗄️ Database check returned', dbDuplicates.size, 'duplicates');
+    setCheckingDuplicates(false);
+    
     const parsed: ParsedRow[] = [];
     const seenRefs = new Set<string>();
 
@@ -623,6 +691,10 @@ export default function UploadPage() {
         isValid = false;
         errorCode = 'DUPLICATE_REF';
         errorDetail = `Duplicate reference found in file: ${refNumber}`;
+      } else if (dbDuplicates.has(refNumber)) {
+        isValid = false;
+        errorCode = 'DUPLICATE_IN_DB';
+        errorDetail = `Record with this ${collectionType === 'invoices' ? 'Invoice' : collectionType === 'payments' ? 'Payment' : 'Credit/Debit'} number already exists in database: ${refNumber}`;
       }
 
       const dateObj = headerIndices['date'] !== undefined ? parseDate(dateVal) : (fallbackDate ? parseDate(fallbackDate) : new Date());
@@ -645,6 +717,8 @@ export default function UploadPage() {
       );
       const dueDate = detectedType === 'invoices' && isValid ? addDays(dateObj, creditDays) : null;
 
+      const isDuplicate = dbDuplicates.has(refNumber);
+      
       parsed.push({
         id: `row-${idx}`,
         refNumber,
@@ -657,8 +731,9 @@ export default function UploadPage() {
         reason: (detectedType === 'debitNote') ? reason : undefined,
         voucherType: detectedType,
         isUnregistered: !supplier,
-        isSkipped: !isValid, // Auto-skip invalid rows
+        isSkipped: !isValid || isDuplicate, // Auto-skip invalid rows or duplicates
         isValid,
+        isDuplicateInDb: isDuplicate,
         errorCode,
         errorDetail,
       });
@@ -670,7 +745,7 @@ export default function UploadPage() {
       const sampleErrors: any[] = [];
       
       parsed.forEach((row, idx) => {
-        if (!row.isValid && sampleErrors.length < 5) {
+        if ((!row.isValid || row.isDuplicateInDb) && sampleErrors.length < 5) {
           sampleErrors.push({
             row: idx + 1,
             data: {
@@ -809,7 +884,7 @@ export default function UploadPage() {
       if (!existingSupplier && row.isUnregistered) {
         // Create new supplier (user already confirmed)
         try {
-          const newSupDoc = await addDoc(collection(firestore, 'suppliers'), {
+          const newSupDoc = await addDocSafe(collection(firestore, 'suppliers'), {
             name: row.supplierName,
             createdAt: serverTimestamp(),
             createdBy: user.uid,
@@ -844,7 +919,7 @@ export default function UploadPage() {
             createdAt: serverTimestamp(),
           });
         } else if (rowImportType === 'payments') {
-          const payRef = await addDoc(collection(firestore, 'payments'), {
+          const payRef = await addDocSafe(collection(firestore, 'payments'), {
             paymentNumber: row.refNumber,
             supplierId,
             branchId: selectedBranchId,
@@ -892,7 +967,7 @@ export default function UploadPage() {
 
     // Write upload history
     try {
-      const historyRef = await addDoc(collection(firestore, 'uploadHistory'), {
+      const historyRef = await addDocSafe(collection(firestore, 'uploadHistory'), {
         type: isMixedMode ? 'mixed' : importType,
         branchId: selectedBranchId,
         uploadedBy: user.uid,
@@ -967,6 +1042,18 @@ export default function UploadPage() {
       <p className="mt-4 text-slate-500 font-medium">Validating Permissions...</p>
     </div>
   );
+
+  if (!user) {
+    return (
+      <main className="p-8 flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="mt-4 text-slate-500 font-medium">Authenticating...</p>
+        </div>
+      </main>
+    );
+  }
+
   if (!isAdmin) {
     return (
       <main className="p-8 flex items-center justify-center min-h-screen bg-slate-50">
@@ -1422,8 +1509,19 @@ export default function UploadPage() {
                   )}
 
                   <div className="pt-4 border-t flex flex-col md:flex-row items-center gap-4">
-                    <Button onClick={processMapping} className="w-full md:max-w-xs h-12 rounded-full font-bold shadow-xl shadow-primary/30">
-                      Generate View &amp; Verify
+                    <Button 
+                      onClick={(e) => processMapping(e)} 
+                      disabled={checkingDuplicates}
+                      className="w-full md:max-w-xs h-12 rounded-full font-bold shadow-xl shadow-primary/30"
+                    >
+                      {checkingDuplicates ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Checking Database...
+                        </>
+                      ) : (
+                        'Generate View & Verify'
+                      )}
                     </Button>
                     <Button
                       variant="ghost"
@@ -1493,13 +1591,16 @@ export default function UploadPage() {
                         {previewData.map((row: ParsedRow) => (
                           <TableRow
                             key={row.id}
+                            title={row.errorDetail || ''}
                             className={`${
-                              row.isSkipped
+                              row.isDuplicateInDb
+                                ? 'bg-red-100 border-red-200 font-semibold'
+                                : row.isSkipped
                                 ? 'bg-red-50'
                                 : row.isUnregistered
                                 ? 'bg-blue-50'
                                 : 'hover:bg-slate-50'
-                            } border-b border-slate-100 transition-colors`}
+                            } border-b border-slate-100 transition-colors cursor-help`}
                           >
                             <TableCell className="text-[10px] font-semibold text-slate-700 py-1.5 px-3 whitespace-nowrap">
                               {row.date}
@@ -1514,7 +1615,9 @@ export default function UploadPage() {
                                 <Badge className="bg-orange-100 text-orange-700 border-0 text-[8px]">DN</Badge>
                               )}
                             </TableCell>
-                            <TableCell className="font-mono text-[10px] font-semibold text-slate-700 py-1.5 px-3">
+                            <TableCell className={`font-mono text-[10px] font-semibold py-1.5 px-3 ${
+                              row.isDuplicateInDb ? 'text-red-700 line-through' : 'text-slate-700'
+                            }`}>
                               {row.refNumber}
                             </TableCell>
                             <TableCell className="text-right font-mono text-[10px] font-bold text-slate-900 py-1.5 px-3">
@@ -1526,7 +1629,14 @@ export default function UploadPage() {
                               </TableCell>
                             )}
                             <TableCell className="text-center py-1.5 px-3">
-                              {row.isSkipped ? (
+                              {row.isDuplicateInDb ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <Badge className="text-[7px] font-bold px-1.5 py-0 bg-red-200 text-red-800 border-0">
+                                    DUP DB
+                                  </Badge>
+                                  <AlertCircle className="w-3 h-3 text-red-600" />
+                                </div>
+                              ) : row.isSkipped ? (
                                 <Badge className="text-[7px] font-bold px-1.5 py-0 bg-red-100 text-red-700 border-0">
                                   SKIP
                                 </Badge>
