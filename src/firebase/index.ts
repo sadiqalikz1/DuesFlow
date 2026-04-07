@@ -2,9 +2,12 @@
 
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, initializeFirestore, Firestore } from 'firebase/firestore'
 
+// Cache SDK instances to prevent redundant initialization and potential state corruption
+let authInstance: Auth | null = null;
+let firestoreInstance: Firestore | null = null;
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
@@ -33,10 +36,29 @@ export function initializeFirebase() {
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
+  if (!authInstance) {
+    authInstance = getAuth(firebaseApp);
+  }
+
+  if (!firestoreInstance) {
+    // Use initializeFirestore with experimentalForceLongPolling to avoid 'ca9' assertion failures
+    // which are common in certain bundler (Turbopack) and network environments.
+    try {
+      firestoreInstance = initializeFirestore(firebaseApp, {
+        experimentalForceLongPolling: true,
+        experimentalAutoDetectLongPolling: true,
+      });
+    } catch (e) {
+      // Fallback if initializeFirestore is called multiple times (e.g. during HMR)
+      console.warn('Firestore initialization fallback (potential ID: ca9 fix context):', e);
+      firestoreInstance = getFirestore(firebaseApp);
+    }
+  }
+
   return {
     firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp)
+    auth: authInstance,
+    firestore: firestoreInstance
   };
 }
 

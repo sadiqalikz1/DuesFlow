@@ -103,7 +103,16 @@ export function useCollection<T = any>(
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        try {
+          unsubscribe();
+        } catch (e) {
+          // If the SDK state is already corrupted, uncurbed failure to unsubscribe might crash the app thread.
+          console.error("useCollection: Failed to unsubscribe cleanly:", e);
+        }
+      }
+    };
   }, [memoizedTargetRefOrQuery]);
 
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
