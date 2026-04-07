@@ -1461,7 +1461,7 @@ export default function UploadPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => { setPreviewData([]); setCurrentStep('select'); }} className="rounded-full text-slate-600 hover:text-blue-600 bg-white border-slate-200">
+                    <Button variant="outline" size="sm" onClick={() => { setPreviewData([]); setCurrentStep('upload'); }} className="rounded-full text-slate-600 hover:text-blue-600 bg-white border-slate-200">
                       <RotateCcw className="w-3.5 h-3.5 mr-2" /> Resync
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => setPreviewData([])} className="rounded-full text-slate-600 hover:text-red-600 bg-white border-slate-200">
