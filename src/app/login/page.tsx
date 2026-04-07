@@ -103,14 +103,16 @@ export default function LoginPage() {
         </div>
 
         <Card className="border-none shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-[2.5rem] bg-white overflow-hidden">
-          <Tabs defaultValue="signup" className="w-full">
-            <TabsList className="w-full grid grid-cols-2 h-14 bg-slate-100/50 p-1 rounded-none border-b border-slate-50">
+          <Tabs defaultValue={signupDisabled ? "signin" : "signup"} className="w-full">
+            <TabsList className={`w-full grid ${signupDisabled ? 'grid-cols-1' : 'grid-cols-2'} h-14 bg-slate-100/50 p-1 rounded-none border-b border-slate-50`}>
               <TabsTrigger value="signin" className="rounded-none data-[state=active]:bg-white data-[state=active]:shadow-none font-bold text-sm">
                 <LogIn className="w-4 h-4 mr-2" /> Sign In
               </TabsTrigger>
-              <TabsTrigger value="signup" className="rounded-none data-[state=active]:bg-white data-[state=active]:shadow-none font-bold text-sm">
-                <UserPlus className="w-4 h-4 mr-2" /> Sign Up
-              </TabsTrigger>
+              {!signupDisabled && (
+                <TabsTrigger value="signup" className="rounded-none data-[state=active]:bg-white data-[state=active]:shadow-none font-bold text-sm">
+                  <UserPlus className="w-4 h-4 mr-2" /> Sign Up
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <CardContent className="space-y-6 pt-10 px-8">
